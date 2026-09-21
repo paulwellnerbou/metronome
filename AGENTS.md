@@ -12,4 +12,4 @@
 - Verify in a served browser (`python3 -m http.server`). Web Audio only starts from a real user gesture — a scripted `.click()` leaves the context suspended and the display frozen on beat one.
 - Match existing style: 2-space indent, semicolons, minimal comments (only the non-obvious "why").
 - This repo is public and holds only the app: plain static files that any web server can serve. Never document or add deployment specifics here — no deploy scripts, no server or infrastructure configuration, and nothing about where or how the app is hosted.
-- Keep `index.html`'s absolute `og:`/`twitter:` URLs on `metronome.wbou.de` — scrapers don't run the app, so those tags can't be relative.
+- Keep `index.html`'s absolute `og:`/`twitter:` URLs on `metronome.wbou.dev` — scrapers don't run the app, so those tags can't be relative.
