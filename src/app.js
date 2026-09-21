@@ -293,7 +293,9 @@ const clock = (seconds) => {
 function renderTrainer() {
   $('trainer-body').inert = !state.trainer;
   const cfg = engineCfg();
-  const { passes, seconds } = trainerPlan(state.tempo, cfg);
+  // planned as if switched on: the dimmed panel previews the climb, and with
+  // the real flag an idle trainer reads as one that has nothing left to do
+  const { passes, seconds } = trainerPlan(state.tempo, { ...cfg, trainer: { ...cfg.trainer, on: true } });
   $('trainer-plan').textContent = passes
     ? `${state.tempo} → ${state.target} BPM takes ${passes} ${passes === 1 ? 'phrase' : 'phrases'}, about ${clock(seconds)}. Then it holds.`
     : `Already at ${state.tempo} BPM — set a higher target, or a slower tempo to start from.`;
