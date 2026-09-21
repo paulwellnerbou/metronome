@@ -8,11 +8,11 @@ Live at [metronome.wbou.de](https://metronome.wbou.de/).
 
 - **Tempo** from 30 to 300 BPM: slider, ±1 buttons (hold to run), type it into the dial, or tap it.
 - **Time signatures**: 2/4 to 7/4 and 3/8 to 12/8. The tempo counts the signature's own beat, so 6/8 at 180 ticks six eighths at 180. The odd meters are grouped the usual way (5 = 3+2, 7 = 2+2+3), and the beat display shows the groups.
-- **Sounds**, all with a different first beat:
+- **Sounds**, all marking the first beat with their low voice:
   - *Click* — a woodblock pair, toc-tic-tic-tic.
-  - *Drum kit* — kick on the one, snare on the backbeat; hi-hats on the eighths are optional. In the eighth-note meters the hi-hat carries every eighth and the snare answers from the second group, so 6/8 and 12/8 come out as the shuffle they are.
-  - *Claves* — a high clave on the one, a lower one after it.
-  - *Beep* — the electronic metronome's two pips.
+  - *Drum kit* — kick on the one and only there, snare on every other beat; hi-hats on the eighths are optional. In the eighth-note meters the hi-hat carries every eighth and the snare answers from each later group, so 6/8 and 12/8 come out as the shuffle they are.
+  - *Claves* — the low clave on the one, the high one after it.
+  - *Beep* — the electronic metronome's two pips, the low one on the one.
 - **Phrase display**: a ring (or, switchable, a horizontal strip with large beat lamps) with one segment per bar. It fills as the bars pass and flashes when the phrase comes round. Bars per phrase is configurable from 1 to 32.
 - **Speed trainer**: after every phrase the tempo goes up by a set amount until it reaches a target, then holds. The panel says how many phrases and how long that takes. Stopping returns to the tempo you started from.
 - **Installable, offline**: a web app manifest and a service worker — add it to the home screen and it works without a connection. The screen stays awake while it plays.
