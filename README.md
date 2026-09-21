@@ -2,7 +2,7 @@
 
 A single-page metronome that runs in the browser and installs as an app: click, drum kit, claves or beep in twelve time signatures, a display that counts the bars of a phrase, and a speed trainer that raises the tempo phrase by phrase.
 
-Live at [metronome.wbou.dev](https://metronome.wbou.dev/).
+Live at [metronome.wbou.de](https://metronome.wbou.de/).
 
 ## Features
 
