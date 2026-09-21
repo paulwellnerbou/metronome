@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#1d2531" />
+  <title>Metronome &amp; Speed Trainer</title>
+  <meta name="description" content="A metronome with click, drum kit and claves in any time signature, a phrase ring that counts the bars, and a speed trainer that pushes the tempo pass by pass." />
+  <!-- Set the theme before first paint to avoid a flash of the wrong mode. -->
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem('metronome-theme');
+        var t = (saved === 'cool' || saved === 'warm' || saved === 'dark') ? saved
+          : (window.matchMedia('(prefers-color-scheme: light)').matches ? 'warm' : 'dark');
+        document.documentElement.dataset.theme = t;
+      } catch (e) { document.documentElement.dataset.theme = 'dark'; }
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bevan&family=Fraunces:opsz,wght@9..144,600&family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Metronome" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <!-- Scrapers don't run the app, so og:image must be a raster at an absolute URL. -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Metronome &amp; Speed Trainer" />
+  <meta property="og:url" content="https://metronome.wbou.de/" />
+  <meta property="og:title" content="Metronome &amp; Speed Trainer" />
+  <meta property="og:description" content="Click, drum kit or claves in any time signature — with a speed trainer that pushes the tempo phrase by phrase." />
+  <meta property="og:image" content="https://metronome.wbou.de/og.png" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Metronome &amp; Speed Trainer — a tempo dial ringed by the bars of a phrase." />
+  <!-- X falls back to the og:* tags, but scrapers that branch on twitter:card
+       being present then look only for twitter:*, so mirror them. -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Metronome &amp; Speed Trainer" />
+  <meta name="twitter:description" content="Click, drum kit or claves in any time signature — with a speed trainer that pushes the tempo phrase by phrase." />
+  <meta name="twitter:image" content="https://metronome.wbou.de/og.png" />
+  <meta name="twitter:image:alt" content="Metronome &amp; Speed Trainer — a tempo dial ringed by the bars of a phrase." />
+</head>
+<body>
+  <div class="top-actions">
+    <!-- Shown only once the browser offers an install prompt. -->
+    <button id="install" class="icon-link" type="button" title="Install as an app" aria-label="Install as an app" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14" /></svg>
+    </button>
+    <a class="icon-link" href="https://github.com/paulwellnerbou/metronome" target="_blank" rel="noopener" title="View source on GitHub" aria-label="View source on GitHub">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.73.5.5 5.73.5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.55 0-.27-.01-1-.02-1.96-3.2.7-3.87-1.54-3.87-1.54-.53-1.34-1.28-1.7-1.28-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.2 1.77 1.2 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.39-5.25 5.67.41.36.78 1.06.78 2.14 0 1.55-.01 2.79-.01 3.17 0 .31.2.67.8.55A11.5 11.5 0 0 0 23.5 12C23.5 5.73 18.27.5 12 .5Z" /></svg>
+    </a>
+    <div class="theme-cbx" id="theme-cbx">
+      <button id="theme-toggle" class="theme-toggle" type="button" title="Theme"
+        aria-haspopup="listbox" aria-controls="theme-menu" aria-expanded="false" aria-label="Theme">
+        <span class="ic ic-warm" aria-hidden="true">☀</span>
+        <span class="ic ic-cool" aria-hidden="true">☁</span>
+        <span class="ic ic-dark" aria-hidden="true">☾</span>
+      </button>
+      <ul class="theme-menu pop" id="theme-menu" role="listbox" aria-label="Theme" tabindex="-1">
+        <li class="theme-opt" role="option" data-theme="warm" tabindex="-1">
+          <span class="ic-glyph" aria-hidden="true">☀</span><span>Warm</span>
+        </li>
+        <li class="theme-opt" role="option" data-theme="cool" tabindex="-1">
+          <span class="ic-glyph" aria-hidden="true">☁</span><span>Cool</span>
+        </li>
+        <li class="theme-opt" role="option" data-theme="dark" tabindex="-1">
+          <span class="ic-glyph" aria-hidden="true">☾</span><span>Dark</span>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <header class="topbar">
+    <span class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15.6 5.5h8.8a1.6 1.6 0 0 1 1.56 1.24L32 33a1.6 1.6 0 0 1-1.56 1.96H9.56A1.6 1.6 0 0 1 8 33l6.04-26.26A1.6 1.6 0 0 1 15.6 5.5Z"/><path d="M9.4 27.6h21.2"/><path d="M20 27.6 27.4 8.4"/><rect x="21.4" y="13.2" width="5.6" height="3.6" rx="0.9" transform="rotate(21 24.2 15)" fill="currentColor" stroke="none"/></svg>
+    </span>
+    <h1>Metronome</h1>
+    <p class="tagline">Click, drum kit or claves in any time signature &mdash; with a speed trainer that pushes the tempo phrase by phrase.</p>
+  </header>
+
+  <main class="deck">
+    <section class="stage" aria-label="Metronome">
+      <div class="display" id="display" data-view="ring">
+        <svg class="ring" id="ring" viewBox="0 0 320 320" aria-hidden="true"></svg>
+        <div class="core">
+          <div class="readout">
+            <input id="bpm" class="bpm" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3"
+              autocomplete="off" aria-label="Tempo in beats per minute" value="100" />
+            <div class="bpm-label"><span>BPM</span><span class="dot" aria-hidden="true">·</span><span id="marking">Andante</span></div>
+          </div>
+          <div class="beats" id="beats" aria-hidden="true"></div>
+          <div class="phrase" id="phrase" aria-hidden="true"></div>
+          <div class="bar-count" id="bar-count" aria-live="off"></div>
+        </div>
+      </div>
+
+      <p class="trainer-status" id="trainer-status" hidden></p>
+
+      <div class="tempo-row">
+        <button type="button" class="round-btn" id="tempo-down" title="Slower" aria-label="Slower">&minus;</button>
+        <input type="range" id="tempo" min="30" max="300" step="1" value="100" aria-label="Tempo" />
+        <button type="button" class="round-btn" id="tempo-up" title="Faster" aria-label="Faster">+</button>
+      </div>
+
+      <div class="transport">
+        <button type="button" class="ghost-btn" id="tap" title="Tap the tempo (T)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11.5V5.2a1.7 1.7 0 0 1 3.4 0v5.3l4.7 1a2.4 2.4 0 0 1 1.9 2.7l-.7 4.2a2.4 2.4 0 0 1-2.4 2H11a3 3 0 0 1-2.4-1.2l-3.4-4.6a1.6 1.6 0 0 1 2.4-2.1L9 13.9" /></svg>
+          <span>Tap</span>
+        </button>
+        <button type="button" class="start-btn" id="toggle" aria-pressed="false" title="Start (Space)" aria-label="Start">
+          <svg class="ic-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.53.85l10.79-6.86a1 1 0 0 0 0-1.7L9.53 4.29A1 1 0 0 0 8 5.14Z" /></svg>
+          <svg class="ic-stop" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
+        </button>
+        <button type="button" class="ghost-btn" id="view" title="Switch between the ring and the bar display">
+          <svg class="ic-ring" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 3.5a8.5 8.5 0 0 1 8.5 8.5" /><path d="M20.5 12A8.5 8.5 0 1 1 12 3.5" opacity="0.35" /></svg>
+          <svg class="ic-bar" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="3" y="8" width="5" height="8" rx="1.4" /><rect x="9.5" y="8" width="5" height="8" rx="1.4" opacity="0.35" /><rect x="16" y="8" width="5" height="8" rx="1.4" opacity="0.35" /></svg>
+          <span id="view-label">Ring</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="console" aria-label="Settings">
+      <div class="group">
+        <h2 class="group-title" id="sig-title">Time signature</h2>
+        <div class="chips sig-chips" id="sigs" role="radiogroup" aria-labelledby="sig-title"></div>
+      </div>
+
+      <div class="group">
+        <h2 class="group-title" id="sound-title">Sound</h2>
+        <div class="chips sound-chips" id="sounds" role="radiogroup" aria-labelledby="sound-title"></div>
+        <div class="row">
+          <label class="switch">
+            <input type="checkbox" id="eighths" />
+            <span class="switch-track"><span class="switch-thumb"></span></span>
+            <span class="switch-text" id="eighths-text">Eighth notes</span>
+          </label>
+          <label class="volume" title="Volume">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5v5h3.5l4.5 4v-13l-4.5 4Z" /><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18.2 6.5a8 8 0 0 1 0 11" /></svg>
+            <input type="range" id="volume" min="0" max="100" step="1" value="80" aria-label="Volume" />
+          </label>
+        </div>
+      </div>
+
+      <div class="group">
+        <h2 class="group-title">Phrase</h2>
+        <div class="setting">
+          <div class="setting-text">
+            <span class="setting-name" id="bars-label">Bars per phrase</span>
+            <span class="setting-hint">One lap of the display.</span>
+          </div>
+          <div class="stepper" id="bars" role="group" aria-labelledby="bars-label"></div>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-head">
+          <h2 class="group-title">Speed trainer</h2>
+          <label class="switch">
+            <input type="checkbox" id="trainer" aria-label="Speed trainer" />
+            <span class="switch-track"><span class="switch-thumb"></span></span>
+          </label>
+        </div>
+        <div class="trainer-body" id="trainer-body">
+          <div class="setting">
+            <div class="setting-text">
+              <span class="setting-name" id="step-label">Faster after each phrase</span>
+            </div>
+            <div class="stepper" id="step" role="group" aria-labelledby="step-label"></div>
+          </div>
+          <div class="setting">
+            <div class="setting-text">
+              <span class="setting-name" id="target-label">Until it reaches</span>
+            </div>
+            <div class="stepper" id="target" role="group" aria-labelledby="target-label"></div>
+          </div>
+          <p class="trainer-plan" id="trainer-plan"></p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <p class="play-hint">
+    <span class="hint-keys"><kbd>Space</kbd> starts and stops, <kbd>↑</kbd> <kbd>↓</kbd> nudge the tempo, <kbd>T</kbd> taps it.</span>
+    <span>Install it from your browser&rsquo;s menu (&ldquo;Add to Home Screen&rdquo;) and it works offline.</span>
+  </p>
+
+  <nav class="promos" aria-label="More music tools">
+    <a class="cross-promo" href="https://harmonica.wbou.de/" target="_blank" rel="noopener">
+      <span class="cross-promo-mark" aria-hidden="true">
+        <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="17.2" width="35" height="5.6" rx="1"/><rect x="6.5" y="13.1" width="27" height="4.3" rx="1.1"/><rect x="6.5" y="22.6" width="27" height="4.3" rx="1.1"/><g fill="currentColor" stroke="none"><rect x="8.3" y="18.3" width="1.6" height="3.4" rx="0.4"/><rect x="11.9" y="18.3" width="1.6" height="3.4" rx="0.4"/><rect x="15.5" y="18.3" width="1.6" height="3.4" rx="0.4"/><rect x="19.1" y="18.3" width="1.6" height="3.4" rx="0.4"/><rect x="22.7" y="18.3" width="1.6" height="3.4" rx="0.4"/><rect x="26.3" y="18.3" width="1.6" height="3.4" rx="0.4"/><rect x="29.9" y="18.3" width="1.6" height="3.4" rx="0.4"/></g></svg>
+      </span>
+      <span class="cross-promo-body">
+        <span class="cross-promo-teaser">Play the blues harp?</span>
+        <span class="cross-promo-desc">Find any chord or scale with the <b>Harmonica Finder</b>.</span>
+      </span>
+      <span class="cross-promo-go" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8" /></svg>
+      </span>
+    </a>
+    <a class="cross-promo" href="https://chords.wbou.de/" target="_blank" rel="noopener">
+      <span class="cross-promo-mark" aria-hidden="true">
+        <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="10" width="22" height="2.6" rx="1.3" fill="currentColor" stroke="none" />
+          <path d="M13 12.5v19M19 12.5v19M25 12.5v19M31 12.5v19" />
+          <path d="M9 19h22M9 25.5h22M9 32h22" />
+          <circle cx="19" cy="15.7" r="2.3" fill="currentColor" stroke="none" />
+          <circle cx="25" cy="22.2" r="2.3" fill="currentColor" stroke="none" />
+        </svg>
+      </span>
+      <span class="cross-promo-body">
+        <span class="cross-promo-teaser">Ukulele, banjo, mandolin or bass?</span>
+        <span class="cross-promo-desc">Chord diagrams and scale shapes with <b>Chord Charts</b>.</span>
+      </span>
+      <span class="cross-promo-go" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8" /></svg>
+      </span>
+    </a>
+  </nav>
+
+  <footer class="foot">
+    <p class="foot-meta">
+      <span>No cookies, no tracking. Your settings stay in this browser.</span>
+      <span>Made with 🎶 by <a href="https://paul.wellnerbou.de" target="_blank" rel="noopener">Paul Wellner Bou</a></span>
+    </p>
+  </footer>
+
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>
