@@ -8,6 +8,7 @@ import {
 } from './meter.js';
 import { SOUNDS } from './sounds.js';
 import { createEngine } from './engine.js';
+import { readLink, writeLink } from './link.js';
 
 const $ = (id) => document.getElementById(id);
 const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
@@ -16,7 +17,7 @@ const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
 
 const STORE = 'metronome-state';
 const DEFAULTS = {
-  tempo: 100, sig: '4/4', sound: 'click', eighths: false, bars: 4,
+  tempo: 100, sig: '4/4', sound: 'click', eighths: false, swing: false, bars: 4,
   trainer: false, step: 5, target: 140, view: 'ring', volume: 80,
 };
 const STEP_MAX = 30;
@@ -24,12 +25,15 @@ const STEP_MAX = 30;
 function loadState() {
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) { /* private mode, or not ours */ }
+  // a shared link wins over what this browser last had, key by key
+  saved = { ...saved, ...readLink(location.search) };
   const int = (v, min, max, fallback) => (Number.isFinite(v) ? clamp(Math.round(v), min, max) : fallback);
   return {
     tempo: int(saved.tempo, TEMPO_MIN, TEMPO_MAX, DEFAULTS.tempo),
     sig: signature(saved.sig).id,
     sound: SOUNDS.some((s) => s.id === saved.sound) ? saved.sound : DEFAULTS.sound,
     eighths: saved.eighths === true,
+    swing: saved.swing === true,
     bars: int(saved.bars, 1, BARS_MAX, DEFAULTS.bars),
     trainer: saved.trainer === true,
     step: int(saved.step, 1, STEP_MAX, DEFAULTS.step),
@@ -48,6 +52,18 @@ const shownTempo = () => live ?? state.tempo;
 
 function save() {
   try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) { /* private mode */ }
+  syncLink();
+}
+
+// The address bar always holds a link to the current exercise. Debounced: a
+// dragged slider saves on every step, and Safari throws once a page rewrites its
+// URL more than about a hundred times in thirty seconds.
+let linkTimer = null;
+function syncLink() {
+  clearTimeout(linkTimer);
+  linkTimer = setTimeout(() => {
+    try { history.replaceState(history.state, '', writeLink(state) + location.hash); } catch (e) { /* throttled */ }
+  }, 250);
 }
 
 function engineCfg() {
@@ -55,6 +71,7 @@ function engineCfg() {
   return {
     sig,
     subs: subsFor(sig, state.eighths),
+    swing: state.swing,
     bars: state.bars,
     sound: state.sound,
     trainer: { on: state.trainer, step: state.step, target: state.target },
@@ -161,7 +178,7 @@ function frame() {
   for (const step of engine.drain()) onStep(step);
   if (lastStep) {
     const into = clamp((engine.clock() - lastStep.time) / lastStep.dur, 0, 1);
-    paintProgress((lastStep.index + into) / lastStep.steps);
+    paintProgress(lastStep.at + into * lastStep.span);
   }
   requestAnimationFrame(frame);
 }
@@ -309,12 +326,21 @@ function renderEighths() {
   input.checked = fixed ? drums : state.eighths;
   input.closest('.switch').classList.toggle('is-fixed', fixed);
   $('eighths-text').textContent = drums ? 'Hi-hat on eighths' : 'Eighth-note ticks';
+  // only a beat split in two can swing
+  const swing = $('swing');
+  const off = subsFor(signature(state.sig), state.eighths) !== 2;
+  swing.disabled = off;
+  swing.checked = state.swing && !off;
+  swing.closest('.switch').classList.toggle('is-fixed', off);
 }
 
 const clock = (seconds) => {
   const s = Math.round(seconds);
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 };
+
+// A short phrase in whole seconds would read the same from start to target.
+const span = (seconds) => (seconds < 10 ? seconds.toFixed(1) : String(Math.round(seconds)));
 
 function renderTrainer() {
   const on = state.trainer;
@@ -357,10 +383,19 @@ function renderStatus(step) {
     el.textContent = next > tempo ? `Phrase ${step.pass + 1} · next ${next} BPM` : `Holding at ${tempo} BPM`;
     return;
   }
-  const { passes, seconds } = trainerPlan(state.tempo, engineCfg());
-  el.textContent = passes
-    ? `${state.tempo} → ${state.target} BPM in ${passes} ${passes === 1 ? 'phrase' : 'phrases'}, ${clock(seconds)}`
-    : `Already at ${state.tempo} — raise the target`;
+  const cfg = engineCfg();
+  const { passes, seconds } = trainerPlan(state.tempo, cfg);
+  if (!passes) {
+    el.textContent = `Already at ${state.tempo} — raise the target`;
+    return;
+  }
+  // Every phrase is shorter than the last, so "each" is a range: the first
+  // phrase, at the start tempo, down to the last one below the target.
+  const phrase = (tempo) => cfg.bars * cfg.sig.beats * 60 / tempo;
+  const first = span(phrase(state.tempo));
+  const last = span(phrase(state.tempo + state.step * (passes - 1)));
+  const each = passes === 1 ? '' : ` · ${first === last ? first : `${first}–${last}`} s each`;
+  el.textContent = `${state.tempo} → ${state.target} BPM in ${passes} ${passes === 1 ? 'phrase' : 'phrases'}\n${clock(seconds)} total${each}`;
 }
 
 function renderView() {
@@ -551,11 +586,49 @@ function initInstall() {
   }
 }
 
+// --- Sharing ------------------------------------------------------------------------
+
+function shareText() {
+  const { tempo, sig, bars, step, target } = state;
+  return state.trainer
+    ? `Speed trainer in ${sig}: ${tempo} → ${target} BPM, +${step} every ${bars} ${bars === 1 ? 'bar' : 'bars'}`
+    : `Metronome: ${tempo} BPM in ${sig}`;
+}
+
+function initShare() {
+  const btn = $('share');
+  let done = null;
+  btn.addEventListener('click', async () => {
+    const url = new URL(writeLink(state), location.href).href;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: document.title, text: shareText(), url });
+        return;
+      } catch (e) {
+        if (e.name === 'AbortError') return;   // the sheet was dismissed
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch (e) {
+      return;
+    }
+    btn.classList.add('copied');
+    btn.title = 'Link copied';
+    clearTimeout(done);
+    done = setTimeout(() => {
+      btn.classList.remove('copied');
+      btn.title = 'Share this exercise';
+    }, 1800);
+  });
+}
+
 // --- Wiring ------------------------------------------------------------------------
 
 function init() {
   initTheme();
   initInstall();
+  initShare();
 
   initChips($('sigs'), SIGNATURES.map(({ id }) => ({ id, label: id })), 'sig', () => {
     buildBeats();
@@ -570,6 +643,12 @@ function init() {
 
   $('eighths').addEventListener('change', (e) => {
     state.eighths = e.target.checked;
+    save();
+    renderEighths();
+    reconfigure(false);
+  });
+  $('swing').addEventListener('change', (e) => {
+    state.swing = e.target.checked;
     save();
     reconfigure(false);
   });
@@ -671,6 +750,7 @@ function init() {
   renderBarCount(null);
   renderTransport();
   engine.configure(engineCfg());
+  save();
 }
 
 init();

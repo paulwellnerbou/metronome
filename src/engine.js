@@ -4,7 +4,7 @@
 // as events so the display can light them up when they sound, not when they
 // were queued.
 
-import { beatRoles, firstPos, nextPos, resubdivide, stepIndex, stepSeconds, stepsPerPhrase } from './meter.js';
+import { beatRoles, firstPos, nextPos, phraseSpan, resubdivide, stepSeconds } from './meter.js';
 import { playStep } from './sounds.js';
 
 const TICK_MS = 25;
@@ -76,7 +76,7 @@ export function createEngine() {
         eighths: cfg.subs > 1,
       });
       const dur = stepSeconds(pos, cfg);
-      events.push({ ...pos, time: nextTime, dur, index: stepIndex(pos, cfg), steps: stepsPerPhrase(cfg) });
+      events.push({ ...pos, time: nextTime, dur, ...phraseSpan(pos, cfg) });
       nextTime += dur;
       pos = nextPos(pos, cfg);
     }
@@ -94,10 +94,10 @@ export function createEngine() {
       if (!running) return;
       if (restart) {
         pos = { ...firstPos(pos.tempo), pass: pos.pass };
-      } else if (prev.subs !== cfg.subs) {
+      } else if (prev.subs !== cfg.subs || prev.swing !== cfg.swing) {
         const moved = resubdivide(pos, prev, cfg);
         pos = moved.pos;
-        nextTime += moved.skip;
+        nextTime += moved.shift;
       }
     },
 

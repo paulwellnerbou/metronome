@@ -14,6 +14,7 @@ const SHELL = [
   'src/app.js',
   'src/engine.js',
   'src/meter.js',
+  'src/link.js',
   'src/sounds.js',
   'src/tick-worker.js',
   'manifest.webmanifest',

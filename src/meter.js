@@ -63,7 +63,7 @@ export function tempoMarking(bpm) {
   return hit ? hit[1] : 'Prestissimo';
 }
 
-// cfg: { sig, subs, bars, trainer: { on, step, target } }
+// cfg: { sig, subs, swing, bars, trainer: { on, step, target } }
 // pos: { beat, sub, bar, pass, tempo } — the step about to be played.
 export function firstPos(tempo) {
   return { beat: 0, sub: 0, bar: 0, pass: 0, tempo };
@@ -88,27 +88,39 @@ export function nextPos(pos, cfg) {
   return { beat, sub, bar: 0, pass: pass + 1, tempo: trainerTempo(tempo, cfg.trainer) };
 }
 
-// A subdivision changed mid-run keeps the beat going. Only a step between beats
-// that the new grid lacks is a problem: it is skipped, with the time left in its
-// beat, to the next beat. `skip` is that time in seconds.
-export function resubdivide(pos, from, to) {
-  if (pos.sub < to.subs) return { pos, skip: 0 };
-  return {
-    pos: nextPos({ ...pos, sub: to.subs - 1 }, to),
-    skip: (from.subs - pos.sub) * stepSeconds(pos, from),
-  };
+// Where a step starts inside its beat, as a fraction of the beat. Swing splits
+// the beat long-short, 2:1: the outer notes of a triplet.
+export function subStart(sub, cfg) {
+  return cfg.swing && cfg.subs === 2 ? [0, 2 / 3][sub] : sub / cfg.subs;
 }
 
 export function stepSeconds(pos, cfg) {
-  return 60 / pos.tempo / cfg.subs;
+  const end = pos.sub + 1 < cfg.subs ? subStart(pos.sub + 1, cfg) : 1;
+  return (end - subStart(pos.sub, cfg)) * 60 / pos.tempo;
 }
 
-export function stepsPerPhrase(cfg) {
-  return cfg.bars * cfg.sig.beats * cfg.subs;
+// Where a step starts in its phrase and how much of the phrase it covers, both
+// as fractions of the phrase: swung steps are unequal, so counting them would
+// make the display surge and stall within a beat.
+export function phraseSpan(pos, cfg) {
+  const beats = cfg.bars * cfg.sig.beats;
+  return {
+    at: (pos.bar * cfg.sig.beats + pos.beat + subStart(pos.sub, cfg)) / beats,
+    span: stepSeconds(pos, cfg) * pos.tempo / 60 / beats,
+  };
 }
 
-export function stepIndex(pos, cfg) {
-  return (pos.bar * cfg.sig.beats + pos.beat) * cfg.subs + pos.sub;
+// A new subdivision or swing mid-run keeps the beat: the step about to play
+// moves to its place on the new grid, `shift` seconds from where it was planned.
+// One the new grid lacks, or would place earlier than planned (possibly in the
+// past), gives way to the next beat.
+export function resubdivide(pos, from, to) {
+  const beat = 60 / pos.tempo;
+  const was = subStart(pos.sub, from);
+  if (pos.sub >= to.subs || subStart(pos.sub, to) < was) {
+    return { pos: nextPos({ ...pos, sub: to.subs - 1 }, to), shift: (1 - was) * beat };
+  }
+  return { pos, shift: (subStart(pos.sub, to) - was) * beat };
 }
 
 // What the trainer has ahead of it from `tempo`: how many phrases are played
