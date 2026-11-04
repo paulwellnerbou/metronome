@@ -6,6 +6,7 @@
 
 import { beatRoles, firstPos, nextPos, phraseSpan, resubdivide, stepSeconds } from './meter.js';
 import { playStep } from './sounds.js';
+import { slotAt } from './groove.js';
 
 const TICK_MS = 25;
 const AHEAD = 0.12;
@@ -74,6 +75,7 @@ export function createEngine() {
         offbeat: pos.sub > 0,
         unit: cfg.sig.unit,
         eighths: cfg.subs > 1,
+        hits: cfg.groove ? cfg.groove[slotAt(pos, cfg.sig)] : undefined,
       });
       const dur = stepSeconds(pos, cfg);
       events.push({ ...pos, time: nextTime, dur, ...phraseSpan(pos, cfg) });
@@ -116,6 +118,17 @@ export function createEngine() {
       // Steps already queued were timed at the old tempo, but the display must
       // not report it back: under a dragged slider it would fight the thumb.
       events.forEach((ev) => { ev.tempo = tempo; });
+    },
+
+    // One instrument of the kit, now: what a rhythm cell sounds like as it is
+    // switched on. A running metronome is heard playing it anyway.
+    audition(hits) {
+      if (running) return;
+      audio();
+      wake();
+      master.gain.cancelScheduledValues(ctx.currentTime);
+      master.gain.setValueAtTime(volume * HEADROOM, ctx.currentTime);
+      playStep(ctx, master, ctx.currentTime + 0.01, { sound: 'drums', role: '.', offbeat: false, unit: 4, hits });
     },
 
     setVolume(v) {

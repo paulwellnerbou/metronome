@@ -108,6 +108,17 @@ function clave(ctx, dest, time, freq, level) {
   burst(ctx, dest, time, { filter: 'bandpass', freq: freq * 1.5, q: 2, peak: 0.25 * level, decay: 0.006 });
 }
 
+// A rhythm's kit: bit i of a step's hits is INSTRUMENTS[i] of groove.js.
+function kitHits(ctx, dest, time, step) {
+  const [kickOn, snareOn, hatOn, claveOn] = [1, 2, 4, 8].map((b) => step.hits & b);
+  if (kickOn) kick(ctx, dest, time, 1);
+  if (snareOn) snare(ctx, dest, time, 0.9);
+  // the same balance the kit keeps on its own: down under a drum, the off-beats
+  // below the beats
+  if (hatOn) hat(ctx, dest, time, kickOn || snareOn ? 0.5 : step.offbeat ? 0.7 : 1);
+  if (claveOn) clave(ctx, dest, time, 2480, kickOn || snareOn ? 0.45 : 0.6);
+}
+
 // The off-beat eighths sit under the beats, never level with them.
 const OFFBEAT = 0.4;
 
@@ -120,6 +131,7 @@ const VOICES = {
   },
 
   drums(ctx, dest, time, step) {
+    if (step.hits !== undefined) { kitHits(ctx, dest, time, step); return; }
     if (step.offbeat) { hat(ctx, dest, time, 0.7); return; }
     // The kick is the one, and only the one: a second kick inside the bar
     // (beat 3 of 4/4) makes the bar sound half as long as it is.
@@ -156,7 +168,7 @@ const VOICES = {
   },
 };
 
-// step: { sound, role, group, offbeat, unit, eighths }
+// step: { sound, role, group, offbeat, unit, eighths, hits? }
 export function playStep(ctx, dest, time, step) {
   (VOICES[step.sound] || VOICES.click)(ctx, dest, time, step);
 }

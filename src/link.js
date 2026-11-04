@@ -1,5 +1,5 @@
 // A link carries the exercise, so it opens the same setup elsewhere: tempo,
-// meter, sound and the trainer. Volume, view and theme belong to whoever is
+// meter, sound, rhythm and the trainer. Volume, view and theme belong to whoever is
 // playing and stay out. Values are raw here; the app validates them as it does
 // its own saved state.
 
@@ -25,6 +25,12 @@ export function readLink(search) {
   if (sig) out.sig = sig.replace('-', '/');
   const sound = q.get('sound');
   if (sound) out.sound = sound;
+  // a rhythm of one's own travels as its pattern; 0 is the kit playing its own
+  const rhythm = q.get('rhythm');
+  if (rhythm !== null) {
+    out.rhythm = rhythm !== '0' && rhythm !== '';
+    if (out.rhythm) out.groove = rhythm;
+  }
   return out;
 }
 
@@ -39,6 +45,7 @@ export function writeLink(state) {
     swing: state.swing ? 1 : 0,
     bars: state.bars,
     trainer: state.trainer ? 1 : 0,
+    rhythm: state.rhythm && state.sound === 'drums' && state.groove ? state.groove : 0,
   });
   if (state.trainer) {
     q.set('step', state.step);

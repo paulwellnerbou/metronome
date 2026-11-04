@@ -9,6 +9,9 @@ import {
 import { SOUNDS } from './sounds.js';
 import { createEngine } from './engine.js';
 import { readLink, writeLink } from './link.js';
+import {
+  INSTRUMENTS, decodeGroove, defaultGroove, encodeGroove, resize, slotAt, slotsPerBar, slotsPerBeat,
+} from './groove.js';
 
 const $ = (id) => document.getElementById(id);
 const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
@@ -18,7 +21,7 @@ const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
 const STORE = 'metronome-state';
 const DEFAULTS = {
   tempo: 100, sig: '4/4', sound: 'click', eighths: false, swing: false, bars: 4,
-  trainer: false, step: 5, target: 140, view: 'ring', volume: 80,
+  trainer: false, step: 5, target: 140, rhythm: false, groove: null, view: 'ring', volume: 80,
 };
 const STEP_MAX = 30;
 
@@ -38,6 +41,9 @@ function loadState() {
     trainer: saved.trainer === true,
     step: int(saved.step, 1, STEP_MAX, DEFAULTS.step),
     target: int(saved.target, TEMPO_MIN, TEMPO_MAX, DEFAULTS.target),
+    rhythm: saved.rhythm === true,
+    // checked against the meter once there is one: see loadCells
+    groove: typeof saved.groove === 'string' ? saved.groove : null,
     view: saved.view === 'bar' ? 'bar' : 'ring',
     volume: int(saved.volume, 0, 100, DEFAULTS.volume),
   };
@@ -68,9 +74,12 @@ function syncLink() {
 
 function engineCfg() {
   const sig = signature(state.sig);
+  const rhythm = rhythmOn();
   return {
     sig,
-    subs: subsFor(sig, state.eighths),
+    // a rhythm is written in eighths, so it runs on them
+    subs: subsFor(sig, state.eighths || rhythm),
+    groove: rhythm ? cells : null,
     swing: state.swing,
     bars: state.bars,
     sound: state.sound,
@@ -166,6 +175,7 @@ function retrigger(el, cls) {
 
 function onStep(step) {
   lastStep = step;
+  markRhythmSlot(step);
   if (step.tempo !== shownTempo()) {
     const from = shownTempo();
     live = step.tempo;
@@ -331,6 +341,9 @@ function initChips(container, items, key, onChange, icons = {}) {
 // eighth-note meter the switch shows what happens anyway: the kit's hi-hat is
 // on every eighth, the other sounds have nothing finer to play.
 function renderEighths() {
+  const custom = rhythmOn();
+  // with a rhythm of one's own the hi-hat plays where the grid puts it
+  $('eighths').closest('.switch').hidden = custom;
   const input = $('eighths');
   const drums = state.sound === 'drums';
   const fixed = signature(state.sig).unit === 8;
@@ -340,7 +353,7 @@ function renderEighths() {
   $('eighths-text').textContent = drums ? 'Hi-hat on eighths' : 'Eighth-note ticks';
   // only a beat split in two can swing
   const swing = $('swing');
-  const off = subsFor(signature(state.sig), state.eighths) !== 2;
+  const off = subsFor(signature(state.sig), state.eighths || custom) !== 2;
   swing.disabled = off;
   swing.checked = state.swing && !off;
   swing.closest('.switch').classList.toggle('is-fixed', off);
@@ -382,6 +395,7 @@ function restartClimb() {
   live = state.tempo;
   lastStep = null;
   beatEls.forEach((el) => el.classList.remove('on', 'hit'));
+  markRhythmSlot(null);
   paintProgress(0);
   renderTempo();
   rollTempo(from);
@@ -450,6 +464,210 @@ function setView(view) {
 }
 const flipView = () => setView(state.view === 'ring' ? 'bar' : 'ring');
 
+
+// --- Rhythm --------------------------------------------------------------------
+
+let cells = [];
+const rhythmOn = () => state.rhythm && state.sound === 'drums';
+
+// The saved rhythm where it fits this meter and phrase, or else what the kit
+// plays on its own.
+function loadCells() {
+  const sig = signature(state.sig);
+  cells = decodeGroove(state.groove, sig, state.bars) ?? defaultGroove(sig, state.eighths, state.bars);
+}
+
+// Back to the kit's own pattern. A rhythm that is on keeps it as its own, so a
+// link to it still carries one.
+function resetRhythm() {
+  state.groove = null;
+  loadCells();
+  if (state.rhythm) state.groove = encodeGroove(cells, signature(state.sig));
+}
+
+function resizeRhythm() {
+  cells = resize(cells, state.bars * slotsPerBar(signature(state.sig)));
+  if (state.groove) state.groove = encodeGroove(cells, signature(state.sig));
+}
+
+function renderRhythm() {
+  $('rhythm-row').hidden = state.sound !== 'drums';
+  $('rhythm').checked = state.rhythm;
+  $('rhythm-use').checked = state.rhythm;
+  $('rhythm-use-text').textContent = state.rhythm ? 'Custom rhythm' : 'Custom rhythm · off, the kit plays its own';
+  $('rhythm-dialog').classList.toggle('is-off', !state.rhythm);
+}
+
+function rhythmChanged() {
+  save();
+  renderRhythm();
+  renderEighths();
+  reconfigure(false);
+}
+
+function setRhythm(on) {
+  state.rhythm = on;
+  if (on && !state.groove) state.groove = encodeGroove(cells, signature(state.sig));
+  rhythmChanged();
+}
+
+// An edit is a rhythm of one's own, so it switches it on.
+function editRhythm() {
+  state.groove = encodeGroove(cells, signature(state.sig));
+  state.rhythm = true;
+  rhythmChanged();
+  paintRhythm();
+}
+
+let slotEls = [];   // per slot of the phrase: its count and its four cells
+let nowSlot = -1;
+
+function buildRhythm() {
+  const sig = signature(state.sig);
+  const per = slotsPerBeat(sig);
+  const bar = slotsPerBar(sig);
+  const roles = beatRoles(sig);
+  // Beats stand apart, a meter's groups further still, by spacer columns: a
+  // margin on a cell would narrow that cell instead.
+  const tracks = ['var(--label)'];
+  const cols = Array.from({ length: bar }, (_, s) => {
+    const beat = Math.floor(s / per);
+    const on = s % per === 0;
+    if (on && s > 0) tracks.push(roles[beat].role === '.' ? 'var(--beat-gap)' : 'var(--group-gap)');
+    tracks.push('minmax(0, 1fr)');
+    return {
+      count: on ? String(beat + 1) : '+',
+      spoken: on ? `beat ${beat + 1}` : `beat ${beat + 1} and`,
+      cls: on ? 'beat-start' : '',
+      at: `grid-column:${tracks.length}`,
+    };
+  });
+  let html = '';
+  for (let b = 0; b < state.bars; b++) {
+    html += `<section class="rbar"><div class="rbar-head"><h3>Bar ${b + 1}</h3>` +
+      (state.bars > 1 ? `<button type="button" class="rbar-copy" data-bar="${b}">Copy to every bar</button>` : '') +
+      `</div><div class="rgrid" style="grid-template-columns:${tracks.join(' ')}"><span></span>` +
+      cols.map((c, s) => `<span class="rcount ${c.cls}" style="${c.at}" data-slot="${b * bar + s}" aria-hidden="true">${c.count}</span>`).join('');
+    INSTRUMENTS.forEach((inst, i) => {
+      html += `<span class="rlabel">${inst.label}</span>`;
+      html += cols.map((c, s) => `<button type="button" class="cell ${c.cls}" style="${c.at}" data-slot="${b * bar + s}" data-inst="${i}" tabindex="-1" aria-pressed="false" aria-label="${inst.label}, bar ${b + 1}, ${c.spoken}"></button>`).join('');
+    });
+    html += '</div></section>';
+  }
+  const host = $('rhythm-bars');
+  host.innerHTML = html;
+  slotEls = [];
+  host.querySelectorAll('[data-slot]').forEach((el) => { (slotEls[el.dataset.slot] ??= []).push(el); });
+  const first = host.querySelector('.cell');
+  if (first) first.tabIndex = 0;
+  nowSlot = -1;
+  $('rhythm-meta').textContent = `${sig.id} · ${state.bars} ${state.bars === 1 ? 'bar' : 'bars'} · ${per === 2 ? 'eighths' : 'one cell per beat'}`;
+  paintRhythm();
+}
+
+function paintRhythm() {
+  slotEls.forEach((els, slot) => els.forEach((el) => {
+    if (el.dataset.inst !== undefined) el.setAttribute('aria-pressed', String(Boolean(cells[slot] & (1 << el.dataset.inst))));
+  }));
+}
+
+function markRhythmSlot(step) {
+  if (!$('rhythm-dialog').open) return;
+  const slot = step ? slotAt(step, signature(state.sig)) : -1;
+  if (slot === nowSlot) return;
+  slotEls[nowSlot]?.forEach((el) => el.classList.remove('now'));
+  slotEls[slot]?.forEach((el) => el.classList.add('now'));
+  nowSlot = slot;
+}
+
+function setCell(cell, on) {
+  const slot = Number(cell.dataset.slot);
+  const mask = 1 << Number(cell.dataset.inst);
+  if (Boolean(cells[slot] & mask) === on) return;
+  cells[slot] ^= mask;
+  if (on) engine.audition(mask);
+  editRhythm();
+}
+
+function initRhythm() {
+  const dialog = $('rhythm-dialog');
+  const host = $('rhythm-bars');
+
+  $('rhythm-edit').addEventListener('click', () => {
+    buildRhythm();
+    dialog.showModal();
+    if (engine.running && lastStep) markRhythmSlot(lastStep);
+  });
+  const close = () => dialog.close();
+  $('rhythm-close').addEventListener('click', close);
+  $('rhythm-done').addEventListener('click', close);
+  // the backdrop is the dialog's own box; the sheet covers the rest of it
+  dialog.addEventListener('click', (e) => { if (e.target === dialog) close(); });
+  dialog.addEventListener('close', () => { slotEls = []; nowSlot = -1; });
+
+  $('rhythm').addEventListener('change', (e) => setRhythm(e.target.checked));
+  $('rhythm-use').addEventListener('change', (e) => setRhythm(e.target.checked));
+  $('rhythm-play').addEventListener('click', () => (engine.running ? stop() : start()));
+  $('rhythm-reset').addEventListener('click', () => {
+    resetRhythm();
+    rhythmChanged();
+    paintRhythm();
+  });
+  $('rhythm-clear').addEventListener('click', () => {
+    cells.fill(0);
+    editRhythm();
+  });
+
+  // A mouse paints: press on a cell and drag along its row. A finger taps, so
+  // a swipe stays a scroll.
+  let paint = null;
+  let mouse = false;
+  host.addEventListener('pointerdown', (e) => {
+    mouse = e.pointerType === 'mouse';
+    const cell = e.target.closest('.cell');
+    if (!cell || !mouse || e.button !== 0) return;
+    paint = { inst: cell.dataset.inst, on: cell.getAttribute('aria-pressed') !== 'true' };
+    setCell(cell, paint.on);
+  });
+  host.addEventListener('pointerover', (e) => {
+    const cell = paint && e.target.closest('.cell');
+    if (cell && cell.dataset.inst === paint.inst) setCell(cell, paint.on);
+  });
+  window.addEventListener('pointerup', () => { paint = null; });
+  host.addEventListener('click', (e) => {
+    const copy = e.target.closest('.rbar-copy');
+    if (copy) {
+      const per = slotsPerBar(signature(state.sig));
+      const from = Number(copy.dataset.bar) * per;
+      const bar = cells.slice(from, from + per);
+      cells = resize(bar, cells.length);
+      editRhythm();
+      return;
+    }
+    const cell = e.target.closest('.cell');
+    // a mouse press already toggled it; keyboard clicks have no detail
+    if (!cell || (mouse && e.detail > 0)) return;
+    setCell(cell, cell.getAttribute('aria-pressed') !== 'true');
+  });
+
+  // One tab stop for the whole grid; arrows walk it.
+  host.addEventListener('focusin', (e) => {
+    const cell = e.target.closest('.cell');
+    if (!cell) return;
+    host.querySelectorAll('.cell[tabindex="0"]').forEach((el) => { if (el !== cell) el.tabIndex = -1; });
+    cell.tabIndex = 0;
+  });
+  host.addEventListener('keydown', (e) => {
+    const cell = e.target.closest('.cell');
+    const move = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+    if (!cell || !move) return;
+    e.preventDefault();
+    const slot = Number(cell.dataset.slot) + move[0];
+    const inst = Number(cell.dataset.inst) + move[1];
+    slotEls[slot]?.find((el) => Number(el.dataset.inst) === inst)?.focus();
+  });
+}
+
 // --- Transport -------------------------------------------------------------------
 
 let wakeLock = null;
@@ -470,6 +688,10 @@ function renderTransport() {
   btn.setAttribute('aria-pressed', String(on));
   btn.setAttribute('aria-label', on ? 'Stop' : 'Start');
   btn.title = on ? 'Stop (Space)' : 'Start (Space)';
+  const play = $('rhythm-play');
+  play.setAttribute('aria-pressed', String(on));
+  play.setAttribute('aria-label', on ? 'Stop' : 'Start');
+  play.title = btn.title;
   display.classList.toggle('running', on);
 }
 
@@ -492,6 +714,7 @@ function stop() {
   lastStep = null;
   beatEls.forEach((el) => el.classList.remove('on', 'hit'));
   display.classList.remove('pulse', 'lap', 'accent');
+  markRhythmSlot(null);
   paintProgress(0);
   renderTransport();
   renderTempo();
@@ -607,9 +830,10 @@ const setupShareTitle = () => (state.trainer ? 'Share trainer settings' : 'Share
 
 function shareText() {
   const { tempo, sig, bars, step, target } = state;
+  const rhythm = rhythmOn() ? ', with my own drum rhythm' : '';
   return state.trainer
-    ? `Speed trainer in ${sig}: ${tempo} → ${target} BPM, +${step} every ${bars} ${bars === 1 ? 'bar' : 'bars'}`
-    : `Metronome: ${tempo} BPM in ${sig}`;
+    ? `Speed trainer in ${sig}: ${tempo} → ${target} BPM, +${step} every ${bars} ${bars === 1 ? 'bar' : 'bars'}${rhythm}`
+    : `Metronome: ${tempo} BPM in ${sig}${rhythm}`;
 }
 
 // The share sheet where there is one; elsewhere the link goes to the clipboard,
@@ -648,10 +872,11 @@ function initShareButton(btn, data, title) {
 function initShare() {
   // the app itself: a recommendation shouldn't carry this player's settings
   initShareButton($('share'), () => ({ url: new URL('./', location.href).href }), () => 'Share this app');
-  initShareButton($('setup-share'), () => ({
-    url: new URL(writeLink(state), location.href).href,
-    text: shareText(),
-  }), setupShareTitle);
+  // The rhythm comes with the settings that make it sound as built: the same
+  // link as the card's, shared from where the rhythm is made.
+  const setup = () => ({ url: new URL(writeLink(state), location.href).href, text: shareText() });
+  initShareButton($('setup-share'), setup, setupShareTitle);
+  initShareButton($('rhythm-share'), setup, () => 'Share this rhythm');
 }
 
 // --- Wiring ------------------------------------------------------------------------
@@ -660,20 +885,30 @@ function init() {
   initTheme();
   initInstall();
   initShare();
+  loadCells();
+  // a saved or linked rhythm that didn't fit gives way to the one in the grid
+  if (state.groove !== null || state.rhythm) state.groove = encodeGroove(cells, signature(state.sig));
+  initRhythm();
 
   initChips($('sigs'), SIGNATURES.map(({ id }) => ({ id, label: id })), 'sig', () => {
+    // a new meter is a new grid; nothing of the old one maps onto it
+    resetRhythm();
+    save();
     buildBeats();
     renderEighths();
     renderTrainer();
     reconfigure(true);
   });
   initChips($('sounds'), SOUNDS, 'sound', () => {
+    renderRhythm();
     renderEighths();
     reconfigure(false);
   }, SOUND_ICONS);
 
   $('eighths').addEventListener('change', (e) => {
     state.eighths = e.target.checked;
+    // until there is a rhythm of one's own, the grid shows what the kit plays
+    if (!state.groove) loadCells();
     save();
     renderEighths();
     reconfigure(false);
@@ -696,6 +931,8 @@ function init() {
   initStepper($('bars'), {
     key: 'bars', min: 1, max: BARS_MAX, format: phraseText,
     onChange() {
+      resizeRhythm();
+      save();
       buildPhrase();
       renderBarCount(null);
       renderTrainer();
@@ -756,7 +993,7 @@ function init() {
       if (!e.repeat) (engine.running ? stop() : start());
       return;
     }
-    if (e.metaKey || e.ctrlKey || e.altKey || e.target.closest('input, #theme-cbx')) return;
+    if (e.metaKey || e.ctrlKey || e.altKey || e.target.closest('input, #theme-cbx, dialog')) return;
     const nudge = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1 }[e.key];
     if (nudge) {
       e.preventDefault();
@@ -776,6 +1013,7 @@ function init() {
   buildBeats();
   renderView();
   renderTempo();
+  renderRhythm();
   renderEighths();
   renderTrainer();
   renderBarCount(null);
