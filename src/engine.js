@@ -4,7 +4,7 @@
 // as events so the display can light them up when they sound, not when they
 // were queued.
 
-import { beatRoles, firstPos, nextPos, stepIndex, stepSeconds, stepsPerPhrase } from './meter.js';
+import { beatRoles, firstPos, nextPos, resubdivide, stepIndex, stepSeconds, stepsPerPhrase } from './meter.js';
 import { playStep } from './sounds.js';
 
 const TICK_MS = 25;
@@ -88,9 +88,26 @@ export function createEngine() {
     // `restart` puts a running metronome back on the first beat of the phrase:
     // a position counted in the old meter means nothing in the new one.
     configure(next, restart = false) {
+      const prev = cfg;
       cfg = next;
       roles = beatRoles(cfg.sig);
-      if (running && restart) pos = { ...firstPos(pos.tempo), pass: pos.pass };
+      if (!running) return;
+      if (restart) {
+        pos = { ...firstPos(pos.tempo), pass: pos.pass };
+      } else if (prev.subs !== cfg.subs) {
+        const moved = resubdivide(pos, prev, cfg);
+        pos = moved.pos;
+        nextTime += moved.skip;
+      }
+    },
+
+    // Back to the first beat of the first pass. What is already queued still
+    // sounds: it is under AHEAD away, and cutting it would leave a hole in the
+    // beat. Its display events go, so the old pass can't report back.
+    restart(tempo) {
+      if (!running) return;
+      pos = firstPos(tempo);
+      events = [];
     },
 
     setTempo(tempo) {

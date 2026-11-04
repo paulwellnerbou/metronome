@@ -139,8 +139,10 @@ function retrigger(el, cls) {
 function onStep(step) {
   lastStep = step;
   if (step.tempo !== shownTempo()) {
+    const from = shownTempo();
     live = step.tempo;
     renderTempo();
+    rollTempo(from);
   }
   if (step.sub > 0) return;
   beatEls.forEach((el, i) => el.classList.toggle('on', i === step.beat));
@@ -164,11 +166,10 @@ function frame() {
   requestAnimationFrame(frame);
 }
 
+const phraseText = (n) => `${n} ${n === 1 ? 'bar' : 'bars'} per phrase`;
+
 function renderBarCount(step) {
-  const n = state.bars;
-  $('bar-count').textContent = step
-    ? `Bar ${step.bar + 1} of ${n}`
-    : `${n} ${n === 1 ? 'bar' : 'bars'} per phrase`;
+  $('bar-count').textContent = step ? `Bar ${step.bar + 1} of ${state.bars}` : phraseText(state.bars);
 }
 
 // --- Tempo -------------------------------------------------------------------
@@ -183,6 +184,17 @@ function renderTempo() {
   $('marking').textContent = tempoMarking(tempo);
   $('tempo-down').disabled = tempo <= TEMPO_MIN;
   $('tempo-up').disabled = tempo >= TEMPO_MAX;
+}
+
+// A jump the player didn't dial in — a trainer step, a restart, a tap — rolls in
+// from the side it came from. Slider and held buttons change it far too often.
+function rollTempo(from) {
+  const to = shownTempo();
+  if (to === from) return;
+  const bpm = $('bpm');
+  bpm.classList.remove('roll-up', 'roll-down');
+  void bpm.offsetWidth;
+  bpm.classList.add(to > from ? 'roll-up' : 'roll-down');
 }
 
 // A tempo the player sets is the new base — also mid-run, where it overrides
@@ -205,7 +217,11 @@ function tap() {
   if (taps.length && now - taps[taps.length - 1] > 2000) taps = [];
   taps.push(now);
   if (taps.length > 6) taps.shift();
-  if (taps.length > 1) setTempo(60000 * (taps.length - 1) / (now - taps[0]));
+  if (taps.length > 1) {
+    const from = shownTempo();
+    setTempo(60000 * (taps.length - 1) / (now - taps[0]));
+    rollTempo(from);
+  }
   retrigger($('tap'), 'tapped');
 }
 
@@ -229,10 +245,10 @@ function holdRepeat(btn, fn) {
   btn.addEventListener('contextmenu', (e) => e.preventDefault());
 }
 
-function initStepper(el, { key, min, max, format, onChange }) {
+function initStepper(el, { key, min, max, format, caption, onChange }) {
   el.innerHTML =
     '<button type="button" class="step-btn" data-dir="-1" aria-label="Less">&minus;</button>' +
-    '<output class="step-val"></output>' +
+    `<output class="step-val"${caption ? ` data-caption="${caption}"` : ''}></output>` +
     '<button type="button" class="step-btn" data-dir="1" aria-label="More">+</button>';
   const out = el.querySelector('output');
   const btns = [...el.querySelectorAll('button')];
@@ -301,26 +317,50 @@ const clock = (seconds) => {
 };
 
 function renderTrainer() {
-  $('trainer-body').inert = !state.trainer;
-  const cfg = engineCfg();
-  // planned as if switched on: the dimmed panel previews the climb, and with
-  // the real flag an idle trainer reads as one that has nothing left to do
-  const { passes, seconds } = trainerPlan(state.tempo, { ...cfg, trainer: { ...cfg.trainer, on: true } });
-  $('trainer-plan').textContent = passes
-    ? `${state.tempo} → ${state.target} BPM takes ${passes} ${passes === 1 ? 'phrase' : 'phrases'}, about ${clock(seconds)}. Then it holds.`
-    : `Already at ${state.tempo} BPM — set a higher target, or a slower tempo to start from.`;
+  const on = state.trainer;
+  $('trainer').setAttribute('aria-pressed', String(on));
+  $('stage').classList.toggle('training', on);
+  $('trainer-panel').inert = !on;
+  renderRestart();
   renderStatus(engine.running ? lastStep : null);
 }
 
+// Stopping already drops back to the start tempo; only a running climb has
+// anywhere to restart from.
+function renderRestart() {
+  const btn = $('restart');
+  btn.disabled = !state.trainer || !engine.running;
+  btn.title = `Restart at ${state.tempo} BPM, phrase 1`;
+  btn.setAttribute('aria-label', btn.title);
+}
+
+function restartClimb() {
+  if (!engine.running) return;
+  const from = shownTempo();
+  engine.restart(state.tempo);
+  live = state.tempo;
+  lastStep = null;
+  beatEls.forEach((el) => el.classList.remove('on', 'hit'));
+  paintProgress(0);
+  renderTempo();
+  rollTempo(from);
+  renderBarCount(null);
+  renderStatus(null);
+}
+
 function renderStatus(step) {
-  const el = $('trainer-status');
-  el.hidden = !state.trainer;
   if (!state.trainer) return;
-  const tempo = shownTempo();
-  const next = trainerTempo(tempo, engineCfg().trainer);
-  if (!step) el.textContent = next > tempo ? `Trainer: ${tempo} → ${state.target} BPM, +${state.step} per phrase` : `Trainer: already at ${state.target} BPM`;
-  else if (next > tempo) el.textContent = `Phrase ${step.pass + 1} · next ${next} BPM`;
-  else el.textContent = `Holding at ${tempo} BPM`;
+  const el = $('trainer-status');
+  if (step) {
+    const tempo = shownTempo();
+    const next = trainerTempo(tempo, engineCfg().trainer);
+    el.textContent = next > tempo ? `Phrase ${step.pass + 1} · next ${next} BPM` : `Holding at ${tempo} BPM`;
+    return;
+  }
+  const { passes, seconds } = trainerPlan(state.tempo, engineCfg());
+  el.textContent = passes
+    ? `${state.tempo} → ${state.target} BPM in ${passes} ${passes === 1 ? 'phrase' : 'phrases'}, ${clock(seconds)}`
+    : `Already at ${state.tempo} — raise the target`;
 }
 
 function renderView() {
@@ -390,12 +430,14 @@ function start() {
   engine.start(state.tempo);
   holdScreen(true);
   renderTransport();
+  renderRestart();
   requestAnimationFrame(frame);
 }
 
 function stop() {
   engine.stop();
   holdScreen(false);
+  const from = shownTempo();
   live = null;
   lastStep = null;
   beatEls.forEach((el) => el.classList.remove('on', 'hit'));
@@ -403,7 +445,9 @@ function stop() {
   paintProgress(0);
   renderTransport();
   renderTempo();
+  rollTempo(from);
   renderBarCount(null);
+  renderRestart();
   renderStatus(null);
 }
 
@@ -527,7 +571,7 @@ function init() {
   $('eighths').addEventListener('change', (e) => {
     state.eighths = e.target.checked;
     save();
-    reconfigure(true);
+    reconfigure(false);
   });
   $('volume').value = state.volume;
   $('volume').style.setProperty('--pct', `${state.volume}%`);
@@ -540,7 +584,7 @@ function init() {
   });
 
   initStepper($('bars'), {
-    key: 'bars', min: 1, max: BARS_MAX, format: String,
+    key: 'bars', min: 1, max: BARS_MAX, format: phraseText,
     onChange() {
       buildPhrase();
       renderBarCount(null);
@@ -548,15 +592,19 @@ function init() {
       reconfigure(true);
     },
   });
+  // Its value is the dial's own bar count, so the control reads as part of it.
+  const barCount = $('bars').querySelector('output');
+  barCount.id = 'bar-count';
+  barCount.className = 'bar-count';
   const trainerChanged = () => { renderTrainer(); reconfigure(false); };
-  initStepper($('step'), { key: 'step', min: 1, max: STEP_MAX, format: (n) => `+${n} BPM`, onChange: trainerChanged });
-  initStepper($('target'), { key: 'target', min: TEMPO_MIN, max: TEMPO_MAX, format: (n) => `${n} BPM`, onChange: trainerChanged });
-  $('trainer').checked = state.trainer;
-  $('trainer').addEventListener('change', (e) => {
-    state.trainer = e.target.checked;
+  initStepper($('step'), { key: 'step', min: 1, max: STEP_MAX, format: (n) => `+${n}`, caption: 'faster by', onChange: trainerChanged });
+  initStepper($('target'), { key: 'target', min: TEMPO_MIN, max: TEMPO_MAX, format: String, caption: 'up to', onChange: trainerChanged });
+  $('trainer').addEventListener('click', () => {
+    state.trainer = !state.trainer;
     save();
     trainerChanged();
   });
+  $('restart').addEventListener('click', restartClimb);
 
   $('tempo').min = TEMPO_MIN;
   $('tempo').max = TEMPO_MAX;

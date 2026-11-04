@@ -88,6 +88,17 @@ export function nextPos(pos, cfg) {
   return { beat, sub, bar: 0, pass: pass + 1, tempo: trainerTempo(tempo, cfg.trainer) };
 }
 
+// A subdivision changed mid-run keeps the beat going. Only a step between beats
+// that the new grid lacks is a problem: it is skipped, with the time left in its
+// beat, to the next beat. `skip` is that time in seconds.
+export function resubdivide(pos, from, to) {
+  if (pos.sub < to.subs) return { pos, skip: 0 };
+  return {
+    pos: nextPos({ ...pos, sub: to.subs - 1 }, to),
+    skip: (from.subs - pos.sub) * stepSeconds(pos, from),
+  };
+}
+
 export function stepSeconds(pos, cfg) {
   return 60 / pos.tempo / cfg.subs;
 }

@@ -358,13 +358,22 @@ button { font: inherit; touch-action: manipulation; }
   box-shadow: var(--stage-shadow);
   transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
 }
-.stage { padding: clamp(18px, 3vw, 26px) clamp(16px, 3vw, 26px) clamp(20px, 3vw, 26px); }
+.stage {
+  --pad-t: clamp(18px, 3vw, 26px);
+  --pad-x: clamp(16px, 3vw, 26px);
+  padding: var(--pad-t) var(--pad-x) clamp(20px, 3vw, 26px);
+}
 
 /* --- Display ----------------------------------------------------------------*/
 .display { position: relative; margin: 0 auto; }
 .core { display: flex; flex-direction: column; align-items: center; }
 
-.display[data-view="ring"] { width: min(100%, 340px); aspect-ratio: 1; }
+.display[data-view="ring"] { width: min(100%, 340px); aspect-ratio: 1; transition: width 0.42s cubic-bezier(0.2, 0.7, 0.2, 1); }
+/* On a short phone the open trainer would push the start button off screen;
+   the ring gives up the difference. */
+@media (max-height: 700px) and (max-width: 640px) {
+  .stage.training .display[data-view="ring"] { width: min(100%, 290px); }
+}
 .display[data-view="ring"] .core {
   position: absolute; inset: 0;
   justify-content: center;
@@ -420,6 +429,10 @@ button { font: inherit; touch-action: manipulation; }
   cursor: text;
   transition: border-color 0.15s ease;
 }
+.bpm.roll-up { animation: roll-up 0.4s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.bpm.roll-down { animation: roll-down 0.4s cubic-bezier(0.2, 0.7, 0.2, 1); }
+@keyframes roll-up { from { translate: 0 0.35em; opacity: 0; color: var(--brass-lit); } 45% { color: var(--brass-lit); } }
+@keyframes roll-down { from { translate: 0 -0.35em; opacity: 0; color: var(--brass-lit); } 45% { color: var(--brass-lit); } }
 .bpm:hover { border-bottom-color: var(--line); }
 .bpm:focus { outline: none; border-bottom-color: var(--brass); }
 .bpm-label {
@@ -504,12 +517,77 @@ button { font: inherit; touch-action: manipulation; }
 .display.lap .phrase-seg { animation: lap-strip 0.7s ease-out; }
 @keyframes lap-strip { from { background: var(--brass-lit); } }
 
+/* --- Speed trainer -------------------------------------------------------------*/
+/* The toggle and restart sit in the card's top corners, outside the ring, so
+   switched off the trainer costs the dial no height. A corner only has room for
+   a name stacked under the icon. */
+.corner-btn {
+  position: absolute; top: var(--pad-t); z-index: 1;
+  width: 54px; height: 52px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  padding: 0;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--fill-1);
+  color: var(--muted);
+  font-size: 0.56rem; font-weight: 700; line-height: 1.1;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  cursor: pointer;
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease,
+    opacity 0.25s ease, translate 0.25s ease, visibility 0.25s;
+}
+.corner-btn svg { width: 20px; height: 20px; flex: none; color: var(--brass); transition: color 0.2s ease; }
+.corner-btn:hover:not(:disabled, [aria-pressed="true"]) { background: var(--brass-soft); border-color: var(--brass); color: var(--ink); }
+.corner-btn:active:not(:disabled) { transform: scale(0.95); }
+.corner-btn:focus-visible { outline: none; border-color: var(--brass); box-shadow: 0 0 0 3px var(--brass-soft); }
+.trainer-toggle { right: var(--pad-x); }
+.trainer-toggle[aria-pressed="true"] {
+  background: var(--btn-bg); color: var(--btn-fg); border-color: transparent;
+  box-shadow: 0 4px 14px -4px var(--brass-glow);
+}
+.trainer-toggle[aria-pressed="true"] svg { color: currentColor; }
+.trainer-restart { left: var(--pad-x); }
+.trainer-restart:disabled { cursor: default; opacity: 0.45; }
+.stage:not(.training) .trainer-restart { opacity: 0; visibility: hidden; translate: 0 -6px; }
+
+/* Opens by its own height: the rows grow from 0fr, so the dial below glides
+   down instead of jumping. */
+.trainer {
+  display: grid; grid-template-rows: 0fr;
+  transition: grid-template-rows 0.42s cubic-bezier(0.2, 0.7, 0.2, 1), margin-bottom 0.42s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.trainer-inner {
+  min-height: 0; overflow: hidden;
+  opacity: 0; translate: 0 -10px;
+  transition: opacity 0.2s ease, translate 0.42s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.stage.training .trainer { grid-template-rows: 1fr; margin-bottom: 8px; }
+.stage.training .trainer-inner { opacity: 1; translate: 0 0; transition-delay: 0.08s, 0s; }
+/* Between the two corner buttons, on their row. */
 .trainer-status {
-  margin: 12px 0 0;
+  display: flex; align-items: center; justify-content: center;
+  min-height: 52px; margin: 0 0 8px; padding: 0 62px;
   text-align: center;
-  font-size: 0.86rem; font-weight: 600;
+  font-size: 0.82rem; font-weight: 600; line-height: 1.3;
   font-variant-numeric: tabular-nums;
   color: var(--brass);
+}
+
+/* The dial's bar count is the phrase-length control. Two lines keep it clear of
+   the ring. */
+.stepper.phrase-stepper { border: 0; background: none; box-shadow: none; overflow: visible; }
+.phrase-stepper .bar-count { max-width: 7.5em; text-align: center; text-wrap: balance; line-height: 1.35; }
+.phrase-stepper .step-btn { border-radius: 50%; }
+.trainer-controls { display: flex; justify-content: center; gap: 8px; }
+.trainer-controls .stepper { flex: 1 1 0; max-width: 190px; justify-content: space-between; }
+.trainer-controls .step-val { min-width: 0; flex: 1; line-height: 1.15; }
+.step-val[data-caption]::before {
+  content: attr(data-caption);
+  display: block;
+  font-size: 0.6rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--faint);
 }
 
 /* --- Sliders ----------------------------------------------------------------*/
@@ -742,12 +820,6 @@ input[type="range"]:active::-webkit-slider-thumb { scale: 1.12; }
 .switch:hover .switch-text { color: var(--ink); }
 .switch.is-fixed { cursor: default; opacity: 0.55; }
 
-.setting { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.setting + .setting { margin-top: 10px; }
-.setting-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.setting-name { font-weight: 600; font-size: 0.95rem; }
-.setting-hint { font-size: 0.8rem; color: var(--faint); }
-
 .stepper {
   flex: none;
   display: inline-flex; align-items: center;
@@ -777,11 +849,6 @@ input[type="range"]:active::-webkit-slider-thumb { scale: 1.12; }
   font-weight: 700; font-size: 0.95rem;
   font-variant-numeric: tabular-nums;
 }
-#bars .step-val { min-width: 2.6em; }
-
-.trainer-body { margin-top: 14px; transition: opacity 0.2s ease; }
-.trainer-body[inert] { opacity: 0.42; }
-.trainer-plan { margin: 12px 0 0; font-size: 0.84rem; line-height: 1.45; color: var(--muted); font-variant-numeric: tabular-nums; }
 
 /* --- Below the deck -------------------------------------------------------------*/
 .play-hint {
@@ -891,8 +958,10 @@ kbd {
 :root.view-switching .readout { view-transition-name: readout; }
 :root.view-switching .beats { view-transition-name: beats; }
 :root.view-switching .phrase { view-transition-name: phrase; }
-:root.view-switching .bar-count { view-transition-name: bar-count; }
-:root.view-switching .trainer-status { view-transition-name: trainer-status; }
+:root.view-switching .phrase-stepper { view-transition-name: bar-count; }
+:root.view-switching .trainer-toggle { view-transition-name: trainer-toggle; }
+:root.view-switching .trainer-restart { view-transition-name: trainer-restart; }
+:root.view-switching .trainer { view-transition-name: trainer; }
 :root.view-switching .tempo-row { view-transition-name: tempo-row; }
 :root.view-switching .transport { view-transition-name: transport; }
 :root.view-switching .console { view-transition-name: console; }

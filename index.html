@@ -86,7 +86,26 @@
   </header>
 
   <main class="deck">
-    <section class="stage" aria-label="Metronome">
+    <section class="stage" id="stage" aria-label="Metronome">
+      <button type="button" class="corner-btn trainer-toggle" id="trainer" aria-pressed="false" aria-controls="trainer-panel"
+        aria-label="Speed trainer" title="Speed trainer: the tempo climbs after every phrase">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 20h4.5v-4.5H12V11h4.5V6.5H21" /><path d="M5 11V4M2.6 6.4 5 4l2.4 2.4" /></svg>
+        <span aria-hidden="true">Speed<br />trainer</span>
+      </button>
+      <button type="button" class="corner-btn trainer-restart" id="restart">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3" /><path d="M4.5 3.5v4h4" /></svg>
+        <span aria-hidden="true">Restart</span>
+      </button>
+      <div class="trainer" id="trainer-panel" role="group" aria-label="Speed trainer settings">
+        <div class="trainer-inner">
+          <p class="trainer-status" id="trainer-status"></p>
+          <div class="trainer-controls">
+            <div class="stepper" id="step" role="group" aria-label="Faster after each phrase"></div>
+            <div class="stepper" id="target" role="group" aria-label="Until it reaches"></div>
+          </div>
+        </div>
+      </div>
+
       <div class="display" id="display" data-view="ring">
         <svg class="ring" id="ring" viewBox="0 0 320 320" aria-hidden="true"></svg>
         <div class="core">
@@ -97,11 +116,9 @@
           </div>
           <div class="beats" id="beats" aria-hidden="true"></div>
           <div class="phrase" id="phrase" aria-hidden="true"></div>
-          <div class="bar-count" id="bar-count" aria-live="off"></div>
+          <div class="stepper phrase-stepper" id="bars" role="group" aria-label="Bars per phrase"></div>
         </div>
       </div>
-
-      <p class="trainer-status" id="trainer-status" hidden></p>
 
       <div class="tempo-row">
         <button type="button" class="round-btn" id="tempo-down" title="Slower" aria-label="Slower">&minus;</button>
@@ -151,42 +168,6 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5v5h3.5l4.5 4v-13l-4.5 4Z" /><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18.2 6.5a8 8 0 0 1 0 11" /></svg>
             <input type="range" id="volume" min="0" max="100" step="1" value="80" aria-label="Volume" />
           </label>
-        </div>
-      </div>
-
-      <div class="group">
-        <h2 class="group-title">Phrase</h2>
-        <div class="setting">
-          <div class="setting-text">
-            <span class="setting-name" id="bars-label">Bars per phrase</span>
-            <span class="setting-hint">One lap of the display.</span>
-          </div>
-          <div class="stepper" id="bars" role="group" aria-labelledby="bars-label"></div>
-        </div>
-      </div>
-
-      <div class="group">
-        <div class="group-head">
-          <h2 class="group-title">Speed trainer</h2>
-          <label class="switch">
-            <input type="checkbox" id="trainer" aria-label="Speed trainer" />
-            <span class="switch-track"><span class="switch-thumb"></span></span>
-          </label>
-        </div>
-        <div class="trainer-body" id="trainer-body">
-          <div class="setting">
-            <div class="setting-text">
-              <span class="setting-name" id="step-label">Faster after each phrase</span>
-            </div>
-            <div class="stepper" id="step" role="group" aria-labelledby="step-label"></div>
-          </div>
-          <div class="setting">
-            <div class="setting-text">
-              <span class="setting-name" id="target-label">Until it reaches</span>
-            </div>
-            <div class="stepper" id="target" role="group" aria-labelledby="target-label"></div>
-          </div>
-          <p class="trainer-plan" id="trainer-plan"></p>
         </div>
       </div>
     </section>

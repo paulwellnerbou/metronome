@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  SIGNATURES, beatRoles, clampTempo, firstPos, nextPos, signature, stepIndex,
+  SIGNATURES, beatRoles, clampTempo, firstPos, nextPos, resubdivide, signature, stepIndex,
   stepSeconds, stepsPerPhrase, subsFor, tempoMarking, trainerPlan, trainerTempo,
 } from '../src/meter.js';
 
@@ -55,6 +55,24 @@ test('subdivisions halve the step and double the steps', () => {
   assert.equal(stepSeconds(firstPos(120), c), 0.25);
   const { seen } = walk(firstPos(120), c, 4);
   assert.deepEqual(seen.map((p) => `${p.beat}+${p.sub}`), ['0+0', '0+1', '1+0', '1+1']);
+});
+
+test('switching eighths mid-run keeps the beat, skipping a vanished off-beat', () => {
+  const eighths = cfg({ subs: 2 });
+  const quarters = cfg({ subs: 1 });
+  const onBeat = { beat: 2, sub: 0, bar: 0, pass: 0, tempo: 120 };
+  assert.deepEqual(resubdivide(onBeat, eighths, quarters), { pos: onBeat, skip: 0 });
+  assert.deepEqual(resubdivide(onBeat, quarters, eighths), { pos: onBeat, skip: 0 });
+
+  const offBeat = { beat: 2, sub: 1, bar: 0, pass: 0, tempo: 120 };
+  assert.deepEqual(resubdivide(offBeat, eighths, quarters),
+    { pos: { beat: 3, sub: 0, bar: 0, pass: 0, tempo: 120 }, skip: 0.25 });
+
+  // the phrase's last off-beat rolls into the next pass, trainer step included
+  const climbing = (subs) => cfg({ subs, bars: 1, trainer: { on: true, step: 5, target: 140 } });
+  const lastOff = { beat: 3, sub: 1, bar: 0, pass: 0, tempo: 120 };
+  assert.deepEqual(resubdivide(lastOff, climbing(2), climbing(1)).pos,
+    { beat: 0, sub: 0, bar: 0, pass: 1, tempo: 125 });
 });
 
 test('the trainer raises the tempo only at the phrase boundary', () => {
