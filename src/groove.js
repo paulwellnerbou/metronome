@@ -96,8 +96,9 @@ export const PRESETS = [
     kick: 'x-x-x-x-', snare: '--x---x-', hat: '-x-x-x-x' },
   { id: 'half', label: 'Half-time', sig: '4/4',
     kick: 'x-----x-', snare: '----x---', hat: 'xxxxxxxx' },
+  // 3+3+2 on the kit: kick, kick, snare. A kick on 3 would land in its gap.
   { id: 'tresillo', label: 'Tresillo', sig: '4/4',
-    kick: 'x---x---', hat: 'x-x-x-x-', clave: 'x--x--x-' },
+    kick: 'x--x----', snare: '------x-', hat: 'x-x-x-x-' },
   { id: 'son32', label: 'Son clave 3-2', sig: '4/4',
     kick: 'x-------|x-------', hat: 'x-x-x-x-|x-x-x-x-', clave: 'x--x--x-|--x-x---' },
   { id: 'son23', label: 'Son clave 2-3', sig: '4/4',
