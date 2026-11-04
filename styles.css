@@ -459,8 +459,8 @@ button { font: inherit; touch-action: manipulation; }
 .display[data-view="ring"] .beats:is([data-count="9"], [data-count="12"]) { gap: 5px; }
 .display[data-view="ring"] .beats:is([data-count="9"], [data-count="12"]) .beat { width: 9px; height: 9px; }
 .display[data-view="ring"] .beats:is([data-count="9"], [data-count="12"]) .beat.down { width: 12px; height: 12px; }
-.beat.on { background: var(--brass); }
-.beat.down.on { background: var(--brass-lit); box-shadow: 0 0 12px var(--brass-glow); }
+.display[data-view="ring"] .beat.on { background: var(--brass); }
+.display[data-view="ring"] .beat.down.on { background: var(--brass-lit); box-shadow: 0 0 12px var(--brass-glow); }
 .display[data-view="ring"] .beat.hit { animation: dot-hit 0.22s ease-out; }
 @keyframes dot-hit { from { scale: 1.7; } }
 
