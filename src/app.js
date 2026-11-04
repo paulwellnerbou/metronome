@@ -255,9 +255,19 @@ function initStepper(el, { key, min, max, format, onChange }) {
 
 // --- Settings ------------------------------------------------------------------
 
-function initChips(container, items, key, onChange) {
+const icon = (body) =>
+  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
+// Click and beep as their waveforms: one transient against a held tone.
+const SOUND_ICONS = {
+  click: icon('<path d="M2.5 17h8l1.5-12.5 1.5 12.5h8" />'),
+  drums: icon('<ellipse cx="12" cy="13" rx="8" ry="2.6" /><path d="M4 13v4.9c0 1.45 3.6 2.6 8 2.6s8-1.15 8-2.6V13" /><path d="M4.5 4.3l9.2 7M19.5 4.3l-9.2 7" />'),
+  claves: icon('<rect x="3" y="15.4" width="18" height="3.6" rx="1.8" transform="rotate(-6 12 17.2)" /><rect x="2.5" y="6.5" width="14" height="3.6" rx="1.8" transform="rotate(40 9.5 8.3)" /><path d="M18.2 12.6l1.6-1.5M17 10.6l.4-1.9" />'),
+  beep: icon('<path d="M2.5 12c1.6 0 1.6-5.5 3.2-5.5S7.3 17.5 8.9 17.5s1.6-11 3.2-11 1.6 11 3.2 11 1.6-11 3.2-11 1.6 5.5 3.2 5.5" />'),
+};
+
+function initChips(container, items, key, onChange, icons = {}) {
   container.innerHTML = items.map(({ id, label }) =>
-    `<button type="button" class="chip" role="radio" data-id="${id}">${label}</button>`).join('');
+    `<button type="button" class="chip" role="radio" data-id="${id}">${icons[id] ?? ''}${label}</button>`).join('');
   const render = () => [...container.children].forEach((chip) => {
     chip.setAttribute('aria-checked', String(chip.dataset.id === state[key]));
   });
@@ -512,7 +522,7 @@ function init() {
   initChips($('sounds'), SOUNDS, 'sound', () => {
     renderEighths();
     reconfigure(false);
-  });
+  }, SOUND_ICONS);
 
   $('eighths').addEventListener('change', (e) => {
     state.eighths = e.target.checked;

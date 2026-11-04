@@ -703,6 +703,14 @@ input[type="range"]:active::-webkit-slider-thumb { scale: 1.12; }
 .chip:active { transform: scale(0.96); }
 .chip:focus-visible { outline: none; border-color: var(--brass); box-shadow: 0 0 0 3px var(--brass-soft); }
 .chip[aria-checked="true"] { background: var(--btn-bg); color: var(--btn-fg); border-color: transparent; }
+.chip:has(svg) { display: flex; align-items: center; justify-content: center; gap: 7px; }
+.chip svg { width: 20px; height: 20px; flex: none; color: var(--brass); transition: color 0.15s ease; }
+.chip[aria-checked="true"] svg { color: currentColor; }
+/* Beside the dial the settings get half the width: four sounds in a row only
+   fit with each icon over its name. */
+@media (min-width: 860px) {
+  .sound-chips .chip { flex-direction: column; gap: 3px; height: 58px; }
+}
 
 .row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 18px; margin-top: 14px; }
 .volume { display: flex; align-items: center; gap: 8px; flex: 0 1 170px; min-width: 130px; color: var(--muted); }
