@@ -316,8 +316,39 @@ function renderStatus(step) {
 function renderView() {
   display.dataset.view = state.view;
   $('view').dataset.view = state.view;
-  $('view-label').textContent = state.view === 'ring' ? 'Ring' : 'Bar';
+  const label = state.view === 'ring'
+    ? 'Ring display. Switch to the bar display'
+    : 'Bar display. Switch to the ring display';
+  $('view').setAttribute('aria-label', label);
+  $('view').title = label.split('. ')[1];
 }
+
+const calm = matchMedia('(prefers-reduced-motion: reduce)');
+let viewSwitch = null;
+let switchPath = null;   // the box the switch glides through while switching
+function setView(view) {
+  state.view = view;
+  save();
+  if (!document.startViewTransition || calm.matches) { renderView(); return; }
+  const root = document.documentElement;
+  root.classList.add('view-switching');
+  const from = $('view').getBoundingClientRect();
+  const t = viewSwitch = document.startViewTransition(() => {
+    renderView();
+    const to = $('view').getBoundingClientRect();
+    switchPath = {
+      left: Math.min(from.left, to.left), right: Math.max(from.right, to.right),
+      top: Math.min(from.top, to.top), bottom: Math.max(from.bottom, to.bottom),
+    };
+  });
+  // a switch started mid-switch takes over the names; don't strip them from it
+  t.finished.finally(() => {
+    if (viewSwitch !== t) return;
+    viewSwitch = null;
+    root.classList.remove('view-switching');
+  });
+}
+const flipView = () => setView(state.view === 'ring' ? 'bar' : 'ring');
 
 // --- Transport -------------------------------------------------------------------
 
@@ -536,10 +567,13 @@ function init() {
   // pointerdown, not click: a tap should be read when the finger lands
   $('tap').addEventListener('pointerdown', (e) => { if (e.button === 0) tap(); });
   $('tap').addEventListener('click', (e) => { if (e.detail === 0) tap(); });
-  $('view').addEventListener('click', () => {
-    state.view = state.view === 'ring' ? 'bar' : 'ring';
-    save();
-    renderView();
+  $('view').addEventListener('click', flipView);
+  // While a switch animates, its overlay takes every press, and the real button
+  // already sits where the switch is still heading; a press on its path counts.
+  document.addEventListener('click', (e) => {
+    const p = switchPath;
+    if (!viewSwitch || !p || e.target !== document.documentElement) return;
+    if (e.clientX >= p.left && e.clientX <= p.right && e.clientY >= p.top && e.clientY <= p.bottom) flipView();
   });
 
   // Space belongs to the transport wherever the focus is — after picking a

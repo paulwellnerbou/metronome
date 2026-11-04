@@ -118,10 +118,16 @@
           <svg class="ic-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.53.85l10.79-6.86a1 1 0 0 0 0-1.7L9.53 4.29A1 1 0 0 0 8 5.14Z" /></svg>
           <svg class="ic-stop" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
         </button>
-        <button type="button" class="ghost-btn" id="view" title="Switch between the ring and the bar display">
-          <svg class="ic-ring" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 3.5a8.5 8.5 0 0 1 8.5 8.5" /><path d="M20.5 12A8.5 8.5 0 1 1 12 3.5" opacity="0.35" /></svg>
-          <svg class="ic-bar" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="3" y="8" width="5" height="8" rx="1.4" /><rect x="9.5" y="8" width="5" height="8" rx="1.4" opacity="0.35" /><rect x="16" y="8" width="5" height="8" rx="1.4" opacity="0.35" /></svg>
-          <span id="view-label">Ring</span>
+        <button type="button" class="view-switch" id="view" data-view="ring">
+          <span class="view-thumb" aria-hidden="true"></span>
+          <span class="view-opt" data-opt="ring" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 3.5a8.5 8.5 0 0 1 8.5 8.5" /><path d="M20.5 12A8.5 8.5 0 1 1 12 3.5" opacity="0.35" /></svg>
+            Ring
+          </span>
+          <span class="view-opt" data-opt="bar" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="8" width="5" height="8" rx="1.4" /><rect x="9.5" y="8" width="5" height="8" rx="1.4" opacity="0.35" /><rect x="16" y="8" width="5" height="8" rx="1.4" opacity="0.35" /></svg>
+            Bar
+          </span>
         </button>
       </div>
     </section>
