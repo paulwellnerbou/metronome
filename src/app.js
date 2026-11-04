@@ -4,7 +4,7 @@
 
 import {
   BARS_MAX, SIGNATURES, TEMPO_MAX, TEMPO_MIN,
-  beatRoles, clampTempo, signature, subsFor, tempoMarking, trainerPlan, trainerTempo,
+  beatRoles, clampTempo, signature, subsFor, tempoMarking, trainerPlan, trainerProgress, trainerTempo,
 } from './meter.js';
 import { SOUNDS } from './sounds.js';
 import { createEngine } from './engine.js';
@@ -82,10 +82,12 @@ function engineCfg() {
 
 const RING_C = 160;
 const RING_R = 142;
+const CLIMB_R = 128;   // the trainer's whole climb, just inside the phrase
 const display = $('display');
 let ringFills = [];
 let ringSpans = [];   // [startDeg, endDeg] per bar, for the playhead
 let playhead = null;
+let climbFill = null;
 let phraseFills = [];
 let beatEls = [];
 let lastStep = null;
@@ -110,8 +112,14 @@ function buildPhrase() {
   $('ring').innerHTML = ringSpans.map(([a0, a1]) => {
     const d = arcPath(a0, a1);
     return `<path class="seg-track" d="${d}"/><path class="seg-fill" d="${d}" pathLength="1"/>`;
-  }).join('') + '<circle class="playhead" r="7"/>';
+  }).join('') +
+    // rotated so the circle's own start, at three o'clock, sits at the top
+    `<g class="climb" transform="rotate(-90 ${RING_C} ${RING_C})">` +
+    `<circle class="climb-track" cx="${RING_C}" cy="${RING_C}" r="${CLIMB_R}"/>` +
+    `<circle class="climb-fill" cx="${RING_C}" cy="${RING_C}" r="${CLIMB_R}" pathLength="1"/></g>` +
+    '<circle class="playhead" r="7"/>';
   ringFills = [...$('ring').querySelectorAll('.seg-fill')];
+  climbFill = $('ring').querySelector('.climb-fill');
   playhead = $('ring').querySelector('.playhead');
 
   $('phrase').innerHTML = '<span class="phrase-seg"><i></i></span>'.repeat(n);
@@ -131,7 +139,10 @@ function buildBeats() {
   $('beats').dataset.count = sig.beats;
 }
 
-function paintProgress(p) {
+// `climb`: how far the trainer's whole run has come, 0..1.
+function paintProgress(p, climb = 0) {
+  climbFill.style.strokeDasharray = `${climb.toFixed(4)} 1`;
+  $('climb-strip').style.transform = `scaleX(${climb.toFixed(4)})`;
   const n = ringFills.length;
   const at = clamp(p, 0, 1) * n;
   for (let i = 0; i < n; i++) {
@@ -178,7 +189,8 @@ function frame() {
   for (const step of engine.drain()) onStep(step);
   if (lastStep) {
     const into = clamp((engine.clock() - lastStep.time) / lastStep.dur, 0, 1);
-    paintProgress(lastStep.at + into * lastStep.span);
+    const p = lastStep.at + into * lastStep.span;
+    paintProgress(p, state.trainer ? trainerProgress(state.tempo, lastStep.tempo, p, engineCfg()) : 0);
   }
   requestAnimationFrame(frame);
 }

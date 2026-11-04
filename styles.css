@@ -517,6 +517,28 @@ button { font: inherit; touch-action: manipulation; }
   transform: scaleX(0);
 }
 .display.lap .phrase-seg { animation: lap-strip 0.7s ease-out; }
+
+/* The trainer's whole climb, under the phrase: a thinner ring inside it, a
+   thinner strip below it. Only while training. */
+.climb { opacity: 0; transition: opacity 0.3s ease; }
+.stage.training .climb { opacity: 1; }
+.climb-track, .climb-fill { fill: none; stroke-width: 4; }
+.climb-track { stroke: var(--track-off); }
+.climb-fill { stroke: var(--brass-lit); stroke-dasharray: 0 1; }
+.climb-strip { display: none; }
+.stage.training .display[data-view="bar"] .climb-strip {
+  display: block;
+  width: 100%; height: 4px; margin-top: -10px;
+  border-radius: 2px;
+  background: var(--track-off);
+  overflow: hidden;
+}
+.climb-strip i {
+  display: block; height: 100%;
+  background: var(--brass-lit);
+  transform-origin: left center;
+  transform: scaleX(0);
+}
 @keyframes lap-strip { from { background: var(--brass-lit); } }
 
 /* --- Speed trainer -------------------------------------------------------------*/
@@ -962,6 +984,7 @@ kbd {
 :root.view-switching .readout { view-transition-name: readout; }
 :root.view-switching .beats { view-transition-name: beats; }
 :root.view-switching .phrase { view-transition-name: phrase; }
+:root.view-switching .climb-strip { view-transition-name: climb-strip; }
 :root.view-switching .phrase-stepper { view-transition-name: bar-count; }
 :root.view-switching .trainer-toggle { view-transition-name: trainer-toggle; }
 :root.view-switching .setup-share { view-transition-name: setup-share; }

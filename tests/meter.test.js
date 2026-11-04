@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   SIGNATURES, beatRoles, clampTempo, firstPos, nextPos, phraseSpan, resubdivide, signature,
-  stepSeconds, subsFor, tempoMarking, trainerPlan, trainerTempo,
+  stepSeconds, subsFor, tempoMarking, trainerPlan, trainerProgress, trainerTempo,
 } from '../src/meter.js';
 
 const cfg = (over = {}) => ({
@@ -121,6 +121,19 @@ test('the trainer plan counts the phrases below the target', () => {
   assert.ok(Math.abs(plan.seconds - (16 * 60 / 100 + 16 * 60 / 110)) < 1e-9);
   assert.deepEqual(trainerPlan(120, c), { passes: 0, seconds: 0 });
   assert.deepEqual(trainerPlan(100, cfg({ trainer: { on: true, step: 0, target: 120 } })), { passes: 0, seconds: 0 });
+});
+
+test('a climb progresses by time from the start to the target', () => {
+  const c = cfg({ bars: 4, trainer: { on: true, step: 10, target: 120 } });
+  const first = 16 * 60 / 100;
+  const total = first + 16 * 60 / 110;
+  assert.equal(trainerProgress(100, 100, 0, c), 0);
+  assert.ok(Math.abs(trainerProgress(100, 100, 0.5, c) - first / 2 / total) < 1e-12);
+  // the slower first phrase takes more than half the climb
+  assert.ok(Math.abs(trainerProgress(100, 110, 0, c) - first / total) < 1e-12);
+  assert.ok(trainerProgress(100, 110, 0, c) > 0.5);
+  assert.equal(trainerProgress(100, 120, 0.3, c), 1);   // holding at the target
+  assert.equal(trainerProgress(120, 120, 0, c), 1);     // nothing left to climb
 });
 
 test('tempo input is rounded, clamped, and rejected when it is not a number', () => {

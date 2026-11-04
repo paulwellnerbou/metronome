@@ -123,6 +123,8 @@ export function resubdivide(pos, from, to) {
   return { pos, shift: (subStart(pos.sub, to) - was) * beat };
 }
 
+const phraseSeconds = (tempo, cfg) => cfg.bars * cfg.sig.beats * 60 / tempo;
+
 // What the trainer has ahead of it from `tempo`: how many phrases are played
 // before the target is reached, and how long those take.
 export function trainerPlan(tempo, cfg) {
@@ -132,7 +134,20 @@ export function trainerPlan(tempo, cfg) {
   let seconds = 0;
   for (let t = tempo; t < trainer.target; t = trainerTempo(t, trainer)) {
     passes += 1;
-    seconds += cfg.bars * cfg.sig.beats * 60 / t;
+    seconds += phraseSeconds(t, cfg);
   }
   return { passes, seconds };
+}
+
+// How far a climb from `start` has come, 0..1, by time rather than by phrases:
+// the later phrases are faster and shorter. `now` is the tempo being played and
+// `into` how much of its phrase is done. The phrases before `now` are counted
+// from the tempos on the way up, so a climb restarted from a new start tempo
+// starts over with it. At the target it is done, and stays so while it holds.
+export function trainerProgress(start, now, into, cfg) {
+  const { seconds } = trainerPlan(start, cfg);
+  if (!seconds || now >= cfg.trainer.target) return 1;
+  let done = 0;
+  for (let t = start; t < now; t = trainerTempo(t, cfg.trainer)) done += phraseSeconds(t, cfg);
+  return Math.min(1, (done + into * phraseSeconds(now, cfg)) / seconds);
 }
