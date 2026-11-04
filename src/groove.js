@@ -84,3 +84,46 @@ export function decodeGroove(text, sig, bars) {
     v | ((parseInt(row[i >> 2], 16) >> (3 - (i & 3))) & 1) << b, 0));
   return resize(cells, bars * slotsPerBar(sig));
 }
+
+// Grooves to start from, one row of eighths per instrument, bars split by '|'.
+// Clave patterns run over two bars of eighths, the way they are counted in 2/2.
+export const PRESETS = [
+  { id: 'rock', label: 'Rock', sig: '4/4',
+    kick: 'x---x---', snare: '--x---x-', hat: 'xxxxxxxx' },
+  { id: 'pop', label: 'Pop', sig: '4/4',
+    kick: 'x--xx---', snare: '--x---x-', hat: 'xxxxxxxx' },
+  { id: 'four', label: 'Four on the floor', sig: '4/4',
+    kick: 'x-x-x-x-', snare: '--x---x-', hat: '-x-x-x-x' },
+  { id: 'half', label: 'Half-time', sig: '4/4',
+    kick: 'x-----x-', snare: '----x---', hat: 'xxxxxxxx' },
+  { id: 'tresillo', label: 'Tresillo', sig: '4/4',
+    kick: 'x---x---', hat: 'x-x-x-x-', clave: 'x--x--x-' },
+  { id: 'son32', label: 'Son clave 3-2', sig: '4/4',
+    kick: 'x-------|x-------', hat: 'x-x-x-x-|x-x-x-x-', clave: 'x--x--x-|--x-x---' },
+  { id: 'son23', label: 'Son clave 2-3', sig: '4/4',
+    kick: 'x-------|x-------', hat: 'x-x-x-x-|x-x-x-x-', clave: '--x-x---|x--x--x-' },
+  { id: 'rumba', label: 'Rumba clave', sig: '4/4',
+    kick: 'x-------|x-------', hat: 'x-x-x-x-|x-x-x-x-', clave: 'x--x---x|--x-x---' },
+  { id: 'bossa', label: 'Bossa nova', sig: '4/4',
+    kick: 'x--xx--x|x--xx--x', hat: 'xxxxxxxx|xxxxxxxx', clave: 'x--x--x-|--x--x--' },
+  { id: 'waltz', label: 'Waltz', sig: '3/4',
+    kick: 'x-----', snare: '--x-x-', hat: 'x-x-x-' },
+  { id: 'ballad68', label: '6/8 groove', sig: '6/8',
+    kick: 'x-----', snare: '---x--', hat: 'xxxxxx' },
+  { id: 'bembe', label: 'Bembé bell', sig: '12/8',
+    kick: 'x--x--x--x--', clave: 'x-x-xx-x-x-x' },
+  { id: 'blues128', label: 'Slow blues', sig: '12/8',
+    kick: 'x-----x-----', snare: '---x-----x--', hat: 'xxxxxxxxxxxx' },
+];
+
+export const presetsFor = (sig) => PRESETS.filter((p) => p.sig === sig.id);
+export const presetBars = (preset) => preset.kick.split('|').length;
+
+export function presetGroove(preset, sig, bars) {
+  const per = slotsPerBar(sig);
+  const cells = new Array(presetBars(preset) * per).fill(0);
+  INSTRUMENTS.forEach(({ id }, b) => {
+    [...(preset[id] || '').replace(/\|/g, '')].forEach((c, i) => { if (c === 'x') cells[i] |= 1 << b; });
+  });
+  return resize(cells, bars * per);
+}

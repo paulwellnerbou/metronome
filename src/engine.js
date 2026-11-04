@@ -5,7 +5,7 @@
 // were queued.
 
 import { beatRoles, firstPos, nextPos, phraseSpan, resubdivide, stepSeconds } from './meter.js';
-import { playStep } from './sounds.js';
+import { decodeSamples, fetchSamples, playStep } from './sounds.js';
 import { slotAt } from './groove.js';
 
 const TICK_MS = 25;
@@ -13,6 +13,7 @@ const AHEAD = 0.12;
 const LEAD_IN = 0.1;      // a fresh context needs a moment before its clock is steady
 const HEADROOM = 0.85;    // kick and hi-hat land together; keep their sum under full scale
 const DUCK = 0.008;
+const LAST_CALL = 0.03;   // how close the first beat may come before it plays whatever is ready
 
 export function createEngine() {
   let ctx = null;
@@ -27,6 +28,8 @@ export function createEngine() {
   let running = false;
   let volume = 0.8;
   let events = [];
+  let decoding = false;
+  const recorded = () => cfg.sound === 'drums' && !cfg.electronic;
 
   function audio() {
     if (ctx) return ctx;
@@ -66,10 +69,14 @@ export function createEngine() {
     // After a stall (a suspended context, a frozen tab) the backlog would all
     // fire at once as one burst. Pick the beat up from here instead.
     if (nextTime < now) nextTime = now + LEAD_IN;
+    // The recorded drums decode only once there is a context, i.e. on the first
+    // start; the lead-in leaves time for that before the first beat.
+    if (decoding && now < nextTime - LAST_CALL) return;
     while (nextTime < now + AHEAD) {
       const role = roles[pos.beat];
       playStep(ctx, master, nextTime, {
         sound: cfg.sound,
+        electronic: cfg.electronic,
         role: role.role,
         group: role.group,
         offbeat: pos.sub > 0,
@@ -93,6 +100,10 @@ export function createEngine() {
       const prev = cfg;
       cfg = next;
       roles = beatRoles(cfg.sig);
+      if (recorded()) {
+        fetchSamples();
+        if (ctx) decodeSamples(ctx);
+      }
       if (!running) return;
       if (restart) {
         pos = { ...firstPos(pos.tempo), pass: pos.pass };
@@ -126,9 +137,11 @@ export function createEngine() {
       if (running) return;
       audio();
       wake();
+      if (recorded()) decodeSamples(ctx);
       master.gain.cancelScheduledValues(ctx.currentTime);
       master.gain.setValueAtTime(volume * HEADROOM, ctx.currentTime);
-      playStep(ctx, master, ctx.currentTime + 0.01, { sound: 'drums', role: '.', offbeat: false, unit: 4, hits });
+      playStep(ctx, master, ctx.currentTime + 0.01,
+        { sound: 'drums', role: '.', offbeat: false, unit: 4, electronic: cfg.electronic, hits });
     },
 
     setVolume(v) {
@@ -139,6 +152,10 @@ export function createEngine() {
     start(tempo) {
       audio();
       wake();
+      if (recorded()) {
+        decoding = true;
+        decodeSamples(ctx).finally(() => { decoding = false; });
+      }
       master.gain.cancelScheduledValues(ctx.currentTime);
       master.gain.setValueAtTime(volume * HEADROOM, ctx.currentTime);
       pos = firstPos(tempo);

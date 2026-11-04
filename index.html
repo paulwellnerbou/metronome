@@ -168,6 +168,15 @@
       <div class="group">
         <h2 class="group-title" id="sound-title">Sound</h2>
         <div class="chips sound-chips" id="sounds" role="radiogroup" aria-labelledby="sound-title"></div>
+        <div class="reveal" id="kit-reveal">
+          <div class="reveal-inner">
+          <button type="button" class="kit-switch" id="kit" data-kit="acoustic">
+            <span class="kit-thumb" aria-hidden="true"></span>
+            <span class="kit-opt" data-opt="acoustic" aria-hidden="true">Acoustic</span>
+            <span class="kit-opt" data-opt="electronic" aria-hidden="true">Electronic</span>
+          </button>
+          </div>
+        </div>
         <div class="row">
           <label class="switch">
             <input type="checkbox" id="eighths" />
@@ -180,16 +189,20 @@
             <span class="switch-text">Swing</span>
           </label>
         </div>
-        <div class="row rhythm-row" id="rhythm-row" hidden>
-          <label class="switch">
-            <input type="checkbox" id="rhythm" />
-            <span class="switch-track"><span class="switch-thumb"></span></span>
-            <span class="switch-text">Custom rhythm</span>
-          </label>
-          <button type="button" class="ghost-btn" id="rhythm-edit" aria-haspopup="dialog">
-            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="3" y="4" width="4" height="4" rx="1" /><rect x="10" y="4" width="4" height="4" rx="1" opacity="0.3" /><rect x="17" y="4" width="4" height="4" rx="1" /><rect x="3" y="10" width="4" height="4" rx="1" opacity="0.3" /><rect x="10" y="10" width="4" height="4" rx="1" /><rect x="17" y="10" width="4" height="4" rx="1" opacity="0.3" /><rect x="3" y="16" width="4" height="4" rx="1" /><rect x="10" y="16" width="4" height="4" rx="1" /><rect x="17" y="16" width="4" height="4" rx="1" /></svg>
-            Edit rhythm
-          </button>
+        <div class="reveal" id="rhythm-reveal">
+          <div class="reveal-inner">
+          <div class="row rhythm-row">
+            <label class="switch">
+              <input type="checkbox" id="rhythm" />
+              <span class="switch-track"><span class="switch-thumb"></span></span>
+              <span class="switch-text">Custom rhythm</span>
+            </label>
+            <button type="button" class="ghost-btn" id="rhythm-edit" aria-haspopup="dialog">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="3" y="4" width="4" height="4" rx="1" /><rect x="10" y="4" width="4" height="4" rx="1" opacity="0.3" /><rect x="17" y="4" width="4" height="4" rx="1" /><rect x="3" y="10" width="4" height="4" rx="1" opacity="0.3" /><rect x="10" y="10" width="4" height="4" rx="1" /><rect x="17" y="10" width="4" height="4" rx="1" opacity="0.3" /><rect x="3" y="16" width="4" height="4" rx="1" /><rect x="10" y="16" width="4" height="4" rx="1" /><rect x="17" y="16" width="4" height="4" rx="1" /></svg>
+              Edit rhythm
+            </button>
+          </div>
+          </div>
         </div>
       </div>
 
@@ -258,12 +271,17 @@
         <div class="rhythm-heading">
           <h2 id="rhythm-title">Rhythm</h2>
           <p class="rhythm-meta" id="rhythm-meta"></p>
-          <p class="rhythm-off" id="rhythm-off">Off: the kit plays its own. Any edit switches this on.</p>
         </div>
         <button type="button" class="icon-link rhythm-close" id="rhythm-close" aria-label="Close" title="Close">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
         </button>
       </header>
+      <label class="rhythm-presets" id="rhythm-presets">
+        <span class="rhythm-presets-label">Pattern</span>
+        <span class="select-wrap">
+          <select id="rhythm-preset"></select>
+        </span>
+      </label>
       <div class="rhythm-bars" id="rhythm-bars"></div>
       <footer class="rhythm-foot">
         <button type="button" class="ghost-btn" id="rhythm-reset" title="Back to what the drum kit plays on its own">Reset</button>

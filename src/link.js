@@ -3,7 +3,7 @@
 // playing and stay out. Values are raw here; the app validates them as it does
 // its own saved state.
 
-const FLAGS = ['eighths', 'swing', 'trainer'];
+const FLAGS = ['eighths', 'swing', 'electronic', 'trainer'];
 const NUMBERS = { bpm: 'tempo', bars: 'bars', step: 'step', target: 'target' };
 
 // Only the keys the link has: a hand-written `?bpm=120` changes the tempo and
@@ -43,6 +43,7 @@ export function writeLink(state) {
     sound: state.sound,
     eighths: state.eighths ? 1 : 0,
     swing: state.swing ? 1 : 0,
+    electronic: state.electronic ? 1 : 0,
     bars: state.bars,
     trainer: state.trainer ? 1 : 0,
     rhythm: state.rhythm && state.sound === 'drums' && state.groove ? state.groove : 0,

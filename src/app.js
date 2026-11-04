@@ -10,7 +10,8 @@ import { SOUNDS } from './sounds.js';
 import { createEngine } from './engine.js';
 import { readLink, writeLink } from './link.js';
 import {
-  INSTRUMENTS, decodeGroove, defaultGroove, encodeGroove, resize, slotAt, slotsPerBar, slotsPerBeat,
+  INSTRUMENTS, decodeGroove, defaultGroove, encodeGroove, presetBars, presetGroove, presetsFor, resize, slotAt,
+  slotsPerBar, slotsPerBeat,
 } from './groove.js';
 
 const $ = (id) => document.getElementById(id);
@@ -20,7 +21,7 @@ const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
 
 const STORE = 'metronome-state';
 const DEFAULTS = {
-  tempo: 100, sig: '4/4', sound: 'click', eighths: false, swing: false, bars: 4,
+  tempo: 100, sig: '4/4', sound: 'click', eighths: false, swing: false, electronic: false, bars: 4,
   trainer: false, step: 5, target: 140, rhythm: false, groove: null, view: 'ring', volume: 80,
 };
 const STEP_MAX = 30;
@@ -37,6 +38,7 @@ function loadState() {
     sound: SOUNDS.some((s) => s.id === saved.sound) ? saved.sound : DEFAULTS.sound,
     eighths: saved.eighths === true,
     swing: saved.swing === true,
+    electronic: saved.electronic === true,
     bars: int(saved.bars, 1, BARS_MAX, DEFAULTS.bars),
     trainer: saved.trainer === true,
     step: int(saved.step, 1, STEP_MAX, DEFAULTS.step),
@@ -83,6 +85,7 @@ function engineCfg() {
     swing: state.swing,
     bars: state.bars,
     sound: state.sound,
+    electronic: state.electronic,
     trainer: { on: state.trainer, step: state.step, target: state.target },
   };
 }
@@ -310,6 +313,29 @@ function initStepper(el, { key, min, max, format, caption, onChange }) {
 
 // --- Settings ------------------------------------------------------------------
 
+// Shows or hides an area by growing it from no height, the way the trainer
+// panel opens. Its overflow is clipped only while it moves, or focus rings
+// inside it would be cut off for good.
+let revealsReady = false;
+function reveal(el, open) {
+  if (el.classList.contains('is-open') === open && revealsReady) return;
+  el.inert = !open;
+  el.classList.remove('is-settled');
+  el.classList.toggle('is-open', open);
+  if (!open) return;
+  // Reading the style starts the transition, if there is one. There is none
+  // when it is shown again before its hiding had begun: nothing to wait for.
+  void getComputedStyle(el).gridTemplateRows;
+  const moving = el.getAnimations().some((a) => a.transitionProperty === 'grid-template-rows');
+  if (!revealsReady || !moving) { el.classList.add('is-settled'); return; }
+  const done = (e) => {
+    if (e.target !== el || e.propertyName !== 'grid-template-rows') return;
+    el.removeEventListener('transitionend', done);
+    if (el.classList.contains('is-open')) el.classList.add('is-settled');
+  };
+  el.addEventListener('transitionend', done);
+}
+
 const icon = (body) =>
   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
 // Click and beep as their waveforms: one transient against a held tone.
@@ -493,10 +519,22 @@ function resizeRhythm() {
 }
 
 function renderRhythm() {
-  $('rhythm-row').hidden = state.sound !== 'drums';
+  reveal($('rhythm-reveal'), state.sound === 'drums');
+  renderKit();
   $('rhythm').checked = state.rhythm;
-  $('rhythm-off').hidden = state.rhythm;
-  $('rhythm-dialog').classList.toggle('is-off', !state.rhythm);
+  // with the kit playing its own rhythm there is nothing of one's own to edit
+  $('rhythm-edit').disabled = !state.rhythm;
+}
+
+function renderKit() {
+  const kit = $('kit');
+  reveal($('kit-reveal'), state.sound === 'drums');
+  kit.dataset.kit = state.electronic ? 'electronic' : 'acoustic';
+  const label = state.electronic
+    ? 'Electronic drums. Switch to the acoustic kit'
+    : 'Acoustic drums. Switch to the electronic kit';
+  kit.setAttribute('aria-label', label);
+  kit.title = label.split('. ')[1];
 }
 
 function rhythmChanged() {
@@ -521,6 +559,7 @@ function editRhythm() {
 }
 
 let slotEls = [];   // per slot of the phrase: its count and its four cells
+let renderBarsStepper = () => {};
 let nowSlot = -1;
 
 function buildRhythm() {
@@ -563,10 +602,44 @@ function buildRhythm() {
   if (first) first.tabIndex = 0;
   nowSlot = -1;
   $('rhythm-meta').textContent = `${sig.id} · ${state.bars} ${state.bars === 1 ? 'bar' : 'bars'} · ${per === 2 ? 'eighths' : 'one cell per beat'}`;
+  const presets = presetsFor(sig);
+  $('rhythm-presets').hidden = !presets.length;
+  $('rhythm-preset').innerHTML = '<option value="">Choose a pattern…</option>' +
+    presets.map((p) => `<option value="${p.id}">${p.label}</option>`).join('');
   paintRhythm();
 }
 
+// The pattern the grid is right now, if it is one of them; once edited, none.
+function paintPresets() {
+  const sig = signature(state.sig);
+  const same = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
+  const match = state.rhythm && presetsFor(sig).find((p) => same(cells, presetGroove(p, sig, state.bars)));
+  $('rhythm-preset').value = match ? match.id : '';
+}
+
+// A two-bar clave cut to a one-bar phrase is no clave: the phrase grows to the
+// next whole number of the pattern's bars.
+function applyPreset(id) {
+  const sig = signature(state.sig);
+  const preset = presetsFor(sig).find((p) => p.id === id);
+  const length = presetBars(preset);
+  const bars = Math.ceil(state.bars / length) * length;
+  const grew = bars !== state.bars;
+  state.bars = bars;
+  cells = presetGroove(preset, sig, bars);
+  editRhythm();
+  if (grew) {
+    renderBarsStepper();
+    buildPhrase();
+    renderBarCount(null);
+    renderTrainer();
+    reconfigure(true);
+    buildRhythm();
+  }
+}
+
 function paintRhythm() {
+  paintPresets();
   slotEls.forEach((els, slot) => els.forEach((el) => {
     if (el.dataset.inst !== undefined) el.setAttribute('aria-pressed', String(Boolean(cells[slot] & (1 << el.dataset.inst))));
   }));
@@ -599,12 +672,27 @@ function initRhythm() {
     dialog.showModal();
     if (engine.running && lastStep) markRhythmSlot(lastStep);
   });
-  const close = () => dialog.close();
+  // The sheet leaves the way it came in; Escape takes the same way out.
+  const close = () => {
+    if (!dialog.open || dialog.classList.contains('closing')) return;
+    if (calm.matches) { dialog.close(); return; }
+    dialog.classList.add('closing');
+    const ended = (e) => { if (e.target === dialog) done(); };
+    const done = () => {
+      clearTimeout(fallback);
+      dialog.removeEventListener('animationend', ended);
+      dialog.close();
+    };
+    // the timer covers a page in the background, where animations may not run
+    const fallback = setTimeout(done, 400);
+    dialog.addEventListener('animationend', ended);
+  };
   $('rhythm-close').addEventListener('click', close);
   $('rhythm-done').addEventListener('click', close);
   // the backdrop is the dialog's own box; the sheet covers the rest of it
   dialog.addEventListener('click', (e) => { if (e.target === dialog) close(); });
-  dialog.addEventListener('close', () => { slotEls = []; nowSlot = -1; });
+  dialog.addEventListener('cancel', (e) => { e.preventDefault(); close(); });
+  dialog.addEventListener('close', () => { dialog.classList.remove('closing'); slotEls = []; nowSlot = -1; });
 
   $('rhythm').addEventListener('change', (e) => setRhythm(e.target.checked));
   $('rhythm-play').addEventListener('click', () => (engine.running ? stop() : start()));
@@ -612,6 +700,9 @@ function initRhythm() {
     resetRhythm();
     rhythmChanged();
     paintRhythm();
+  });
+  $('rhythm-preset').addEventListener('change', (e) => {
+    if (e.target.value) applyPreset(e.target.value);
   });
   $('rhythm-clear').addEventListener('click', () => {
     cells.fill(0);
@@ -913,6 +1004,13 @@ function init() {
     renderEighths();
     reconfigure(false);
   });
+  // one button showing both kits, so every press flips it, wherever it lands
+  $('kit').addEventListener('click', () => {
+    state.electronic = !state.electronic;
+    save();
+    renderKit();
+    reconfigure(false);
+  });
   $('swing').addEventListener('change', (e) => {
     state.swing = e.target.checked;
     save();
@@ -928,7 +1026,7 @@ function init() {
     save();
   });
 
-  initStepper($('bars'), {
+  renderBarsStepper = initStepper($('bars'), {
     key: 'bars', min: 1, max: BARS_MAX, format: phraseText,
     onChange() {
       resizeRhythm();
@@ -1020,6 +1118,8 @@ function init() {
   renderTransport();
   engine.configure(engineCfg());
   save();
+  // what is open on load is just there; only later changes move
+  revealsReady = true;
 }
 
 init();

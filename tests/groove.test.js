@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { signature } from '../src/meter.js';
-import { decodeGroove, defaultGroove, encodeGroove, resize, slotAt, slotsPerBar } from '../src/groove.js';
+import {
+  PRESETS, decodeGroove, defaultGroove, encodeGroove, presetBars, presetGroove, presetsFor, resize, slotAt, slotsPerBar,
+} from '../src/groove.js';
 
 const [K, S, H, C] = [1, 2, 4, 8];
 
@@ -53,4 +55,28 @@ test('a rhythm of the wrong length, or garbage, does not decode', () => {
 test('a longer phrase repeats the rhythm, a shorter one cuts it', () => {
   assert.deepEqual(resize([1, 2, 3], 7), [1, 2, 3, 1, 2, 3, 1]);
   assert.deepEqual(resize([1, 2, 3], 2), [1, 2]);
+});
+
+test('every preset fills whole bars of its meter on every row', () => {
+  for (const p of PRESETS) {
+    const per = slotsPerBar(signature(p.sig));
+    for (const id of ['kick', 'snare', 'hat', 'clave']) {
+      if (!p[id]) continue;
+      const bars = p[id].split('|');
+      assert.equal(bars.length, presetBars(p), `${p.id} ${id}`);
+      assert.ok(bars.every((bar) => bar.length === per && /^[x-]+$/.test(bar)), `${p.id} ${id}`);
+    }
+  }
+});
+
+test('a preset repeats through the phrase', () => {
+  const sig = signature('4/4');
+  const son = PRESETS.find((p) => p.id === 'son32');
+  const cells = presetGroove(son, sig, 4);
+  assert.equal(cells.length, 32);
+  assert.deepEqual(cells.slice(16), cells.slice(0, 16));
+  assert.equal(cells[3] & C, C);    // the clave's second hit, on 2-and
+  assert.equal(cells[1] & C, 0);
+  assert.equal(presetsFor(sig).length > 0, true);
+  assert.deepEqual(presetsFor(signature('5/8')), []);
 });

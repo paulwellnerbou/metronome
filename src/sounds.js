@@ -89,18 +89,75 @@ function tic(ctx, dest, time, level) {
 
 // Two layers: the falling sweep is the beater hitting the skin, the steady low
 // sine under it is the shell ringing on. The sweep alone reads as a tom.
-function kick(ctx, dest, time, level) {
+function synthKick(ctx, dest, time, level) {
   tone(ctx, dest, time, { freq: 118, to: 40, peak: 0.52 * level, decay: 0.34 });
   tone(ctx, dest, time, { freq: 52, peak: 0.36 * level, decay: 0.42 });
   burst(ctx, dest, time, { filter: 'bandpass', freq: 2600, peak: 0.1 * level, decay: 0.007 });
 }
-function snare(ctx, dest, time, level) {
+function synthSnare(ctx, dest, time, level) {
   burst(ctx, dest, time, { filter: 'highpass', freq: 1500, peak: 0.5 * level, decay: 0.15 });
   tone(ctx, dest, time, { freq: 215, to: 160, type: 'triangle', peak: 0.4 * level, decay: 0.09 });
 }
-function hat(ctx, dest, time, level) {
+function synthHat(ctx, dest, time, level) {
   burst(ctx, dest, time, { filter: 'highpass', freq: 7600, peak: 0.34 * level, decay: 0.04 });
 }
+
+// The drum kit's recorded hits, one per drum, from SM Drums (public domain).
+// WAV, not a compressed format: those start with encoder padding that browsers
+// don't reliably strip, and every hit would land late. Until a hit has arrived
+// and decoded, or if it never does, its synthesized drum plays. `gain` brings
+// each recording level with the synthesized drum it stands in for.
+const SAMPLES = {
+  kick: { file: 'kick.wav', gain: 1, synth: synthKick },
+  snare: { file: 'snare.wav', gain: 0.45, synth: synthSnare },
+  hat: { file: 'hat.wav', gain: 0.46, synth: synthHat },
+};
+const IDS = Object.keys(SAMPLES);
+const buffers = {};
+let fetched = null;
+let decoded = null;
+
+// Only the bytes: there may be no AudioContext yet, and the first hit
+// shouldn't wait on the network once there is.
+export function fetchSamples() {
+  fetched ??= Promise.all(IDS.map((id) =>
+    fetch(new URL(`../sounds/${SAMPLES[id].file}`, import.meta.url))
+      .then((res) => (res.ok ? res.arrayBuffer() : null))
+      .catch(() => null)));
+  return fetched;
+}
+
+export function decodeSamples(ctx) {
+  decoded ??= fetchSamples().then((list) => Promise.all(list.map(async (bytes, i) => {
+    if (!bytes) return false;
+    try {
+      buffers[IDS[i]] = await ctx.decodeAudioData(bytes);
+      return true;
+    } catch (e) { return false; }
+  }))).then((ok) => {
+    // offline on a first visit: try again on the next start
+    if (ok.includes(false)) { fetched = null; decoded = null; }
+  });
+  return decoded;
+}
+
+function drum(id) {
+  const { gain, synth } = SAMPLES[id];
+  return (ctx, dest, time, level) => {
+    const buffer = buffers[id];
+    if (!buffer) { synth(ctx, dest, time, level); return; }
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    const amp = ctx.createGain();
+    amp.gain.value = gain * level;
+    src.connect(amp);
+    amp.connect(dest);
+    src.start(time);
+  };
+}
+const RECORDED = { kick: drum('kick'), snare: drum('snare'), hat: drum('hat') };
+const ELECTRONIC = { kick: synthKick, snare: synthSnare, hat: synthHat };
+const kitFor = (step) => (step.electronic ? ELECTRONIC : RECORDED);
 
 function clave(ctx, dest, time, freq, level) {
   tone(ctx, dest, time, { freq, peak: 0.75 * level, decay: 0.06 });
@@ -110,6 +167,7 @@ function clave(ctx, dest, time, freq, level) {
 
 // A rhythm's kit: bit i of a step's hits is INSTRUMENTS[i] of groove.js.
 function kitHits(ctx, dest, time, step) {
+  const { kick, snare, hat } = kitFor(step);
   const [kickOn, snareOn, hatOn, claveOn] = [1, 2, 4, 8].map((b) => step.hits & b);
   if (kickOn) kick(ctx, dest, time, 1);
   if (snareOn) snare(ctx, dest, time, 0.9);
@@ -132,6 +190,7 @@ const VOICES = {
 
   drums(ctx, dest, time, step) {
     if (step.hits !== undefined) { kitHits(ctx, dest, time, step); return; }
+    const { kick, snare, hat } = kitFor(step);
     if (step.offbeat) { hat(ctx, dest, time, 0.7); return; }
     // The kick is the one, and only the one: a second kick inside the bar
     // (beat 3 of 4/4) makes the bar sound half as long as it is.
@@ -168,7 +227,7 @@ const VOICES = {
   },
 };
 
-// step: { sound, role, group, offbeat, unit, eighths, hits? }
+// step: { sound, role, group, offbeat, unit, eighths, electronic, hits? }
 export function playStep(ctx, dest, time, step) {
   (VOICES[step.sound] || VOICES.click)(ctx, dest, time, step);
 }
