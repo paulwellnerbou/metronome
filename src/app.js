@@ -347,6 +347,9 @@ function renderTrainer() {
   $('trainer').setAttribute('aria-pressed', String(on));
   $('stage').classList.toggle('training', on);
   $('trainer-panel').inert = !on;
+  const share = $('setup-share');
+  if (!share.classList.contains('copied')) share.title = setupShareTitle();
+  share.setAttribute('aria-label', setupShareTitle());
   renderRestart();
   renderStatus(engine.running ? lastStep : null);
 }
@@ -588,6 +591,8 @@ function initInstall() {
 
 // --- Sharing ------------------------------------------------------------------------
 
+const setupShareTitle = () => (state.trainer ? 'Share trainer settings' : 'Share settings');
+
 function shareText() {
   const { tempo, sig, bars, step, target } = state;
   return state.trainer
@@ -595,14 +600,17 @@ function shareText() {
     : `Metronome: ${tempo} BPM in ${sig}`;
 }
 
-function initShare() {
-  const btn = $('share');
+// The share sheet where there is one; elsewhere the link goes to the clipboard,
+// and the button says so for a moment.
+function initShareButton(btn, data, title) {
+  const label = btn.querySelector('span');
+  const idleLabel = label?.textContent;
   let done = null;
   btn.addEventListener('click', async () => {
-    const url = new URL(writeLink(state), location.href).href;
+    const { url, text } = data();
     if (navigator.share) {
       try {
-        await navigator.share({ title: document.title, text: shareText(), url });
+        await navigator.share({ title: document.title, text, url });
         return;
       } catch (e) {
         if (e.name === 'AbortError') return;   // the sheet was dismissed
@@ -615,12 +623,23 @@ function initShare() {
     }
     btn.classList.add('copied');
     btn.title = 'Link copied';
+    if (label) label.textContent = 'Copied';
     clearTimeout(done);
     done = setTimeout(() => {
       btn.classList.remove('copied');
-      btn.title = 'Share this exercise';
+      btn.title = title();
+      if (label) label.textContent = idleLabel;
     }, 1800);
   });
+}
+
+function initShare() {
+  // the app itself: a recommendation shouldn't carry this player's settings
+  initShareButton($('share'), () => ({ url: new URL('./', location.href).href }), () => 'Share this app');
+  initShareButton($('setup-share'), () => ({
+    url: new URL(writeLink(state), location.href).href,
+    text: shareText(),
+  }), setupShareTitle);
 }
 
 // --- Wiring ------------------------------------------------------------------------
@@ -676,7 +695,7 @@ function init() {
   barCount.id = 'bar-count';
   barCount.className = 'bar-count';
   const trainerChanged = () => { renderTrainer(); reconfigure(false); };
-  initStepper($('step'), { key: 'step', min: 1, max: STEP_MAX, format: (n) => `+${n}`, caption: 'faster by', onChange: trainerChanged });
+  initStepper($('step'), { key: 'step', min: 1, max: STEP_MAX, format: (n) => `+${n}`, caption: 'step', onChange: trainerChanged });
   initStepper($('target'), { key: 'target', min: TEMPO_MIN, max: TEMPO_MAX, format: String, caption: 'up to', onChange: trainerChanged });
   $('trainer').addEventListener('click', () => {
     state.trainer = !state.trainer;

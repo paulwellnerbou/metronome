@@ -520,12 +520,11 @@ button { font: inherit; touch-action: manipulation; }
 @keyframes lap-strip { from { background: var(--brass-lit); } }
 
 /* --- Speed trainer -------------------------------------------------------------*/
-/* The toggle and restart sit in the card's top corners, outside the ring, so
-   switched off the trainer costs the dial no height. A corner only has room for
-   a name stacked under the icon. */
-.corner-btn {
-  position: absolute; top: var(--pad-t); z-index: 1;
-  width: 54px; height: 52px;
+/* The toggle and share sit in the card's top corners, outside the ring, so
+   they cost the dial no height. There is only room for a
+   name stacked under the icon. */
+.tile-btn {
+  width: 54px;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
   padding: 0;
   border-radius: 14px;
@@ -539,19 +538,22 @@ button { font: inherit; touch-action: manipulation; }
   transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease,
     opacity 0.25s ease, translate 0.25s ease, visibility 0.25s;
 }
-.corner-btn svg { width: 20px; height: 20px; flex: none; color: var(--brass); transition: color 0.2s ease; }
-.corner-btn:hover:not(:disabled, [aria-pressed="true"]) { background: var(--brass-soft); border-color: var(--brass); color: var(--ink); }
-.corner-btn:active:not(:disabled) { transform: scale(0.95); }
-.corner-btn:focus-visible { outline: none; border-color: var(--brass); box-shadow: 0 0 0 3px var(--brass-soft); }
-.trainer-toggle { right: var(--pad-x); }
+.tile-btn svg { width: 20px; height: 20px; flex: none; color: var(--brass); transition: color 0.2s ease; }
+.tile-btn:hover:not(:disabled, [aria-pressed="true"]) { background: var(--brass-soft); border-color: var(--brass); color: var(--ink); }
+.tile-btn:active:not(:disabled) { transform: scale(0.95); }
+.tile-btn:focus-visible { outline: none; border-color: var(--brass); box-shadow: 0 0 0 3px var(--brass-soft); }
+.tile-btn:disabled { cursor: default; opacity: 0.45; }
+.corner-btn { position: absolute; top: var(--pad-t); z-index: 1; height: 52px; }
+.trainer-toggle { left: var(--pad-x); }
 .trainer-toggle[aria-pressed="true"] {
   background: var(--btn-bg); color: var(--btn-fg); border-color: transparent;
   box-shadow: 0 4px 14px -4px var(--brass-glow);
 }
 .trainer-toggle[aria-pressed="true"] svg { color: currentColor; }
-.trainer-restart { left: var(--pad-x); }
-.trainer-restart:disabled { cursor: default; opacity: 0.45; }
-.stage:not(.training) .trainer-restart { opacity: 0; visibility: hidden; translate: 0 -6px; }
+.setup-share { right: var(--pad-x); }
+.setup-share .ic-copied, .setup-share.copied .ic-share { display: none; }
+.setup-share.copied .ic-copied { display: block; }
+.trainer-restart { flex: none; height: 44px; border-radius: 12px; }
 
 /* Opens by its own height: the rows grow from 0fr, so the dial below glides
    down instead of jumping. */
@@ -581,7 +583,7 @@ button { font: inherit; touch-action: manipulation; }
 .stepper.phrase-stepper { border: 0; background: none; box-shadow: none; overflow: visible; }
 .phrase-stepper .bar-count { max-width: 7.5em; text-align: center; text-wrap: balance; line-height: 1.35; }
 .phrase-stepper .step-btn { border-radius: 50%; }
-.trainer-controls { display: flex; justify-content: center; gap: 8px; }
+.trainer-controls { display: flex; justify-content: center; gap: 6px; }
 .trainer-controls .stepper { flex: 1 1 0; max-width: 190px; justify-content: space-between; }
 .trainer-controls .step-val { min-width: 0; flex: 1; line-height: 1.15; }
 .step-val[data-caption]::before {
@@ -962,7 +964,7 @@ kbd {
 :root.view-switching .phrase { view-transition-name: phrase; }
 :root.view-switching .phrase-stepper { view-transition-name: bar-count; }
 :root.view-switching .trainer-toggle { view-transition-name: trainer-toggle; }
-:root.view-switching .trainer-restart { view-transition-name: trainer-restart; }
+:root.view-switching .setup-share { view-transition-name: setup-share; }
 :root.view-switching .trainer { view-transition-name: trainer; }
 :root.view-switching .tempo-row { view-transition-name: tempo-row; }
 :root.view-switching .transport { view-transition-name: transport; }
