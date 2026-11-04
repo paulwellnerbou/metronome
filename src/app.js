@@ -342,14 +342,16 @@ function initChips(container, items, key, onChange, icons = {}) {
 // on every eighth, the other sounds have nothing finer to play.
 function renderEighths() {
   const custom = rhythmOn();
-  // with a rhythm of one's own the hi-hat plays where the grid puts it
-  $('eighths').closest('.switch').hidden = custom;
   const input = $('eighths');
   const drums = state.sound === 'drums';
   const fixed = signature(state.sig).unit === 8;
-  input.disabled = fixed;
+  // A rhythm of one's own puts the hi-hat where its grid says; the switch keeps
+  // the player's own choice for when the kit plays on its own again.
+  input.disabled = fixed || custom;
   input.checked = fixed ? drums : state.eighths;
-  input.closest('.switch').classList.toggle('is-fixed', fixed);
+  const label = input.closest('.switch');
+  label.classList.toggle('is-fixed', fixed || custom);
+  label.title = custom ? 'The custom rhythm sets the hi-hat' : '';
   $('eighths-text').textContent = drums ? 'Hi-hat on eighths' : 'Eighth-note ticks';
   // only a beat split in two can swing
   const swing = $('swing');
@@ -493,8 +495,7 @@ function resizeRhythm() {
 function renderRhythm() {
   $('rhythm-row').hidden = state.sound !== 'drums';
   $('rhythm').checked = state.rhythm;
-  $('rhythm-use').checked = state.rhythm;
-  $('rhythm-use-text').textContent = state.rhythm ? 'Custom rhythm' : 'Custom rhythm · off, the kit plays its own';
+  $('rhythm-off').hidden = state.rhythm;
   $('rhythm-dialog').classList.toggle('is-off', !state.rhythm);
 }
 
@@ -606,7 +607,6 @@ function initRhythm() {
   dialog.addEventListener('close', () => { slotEls = []; nowSlot = -1; });
 
   $('rhythm').addEventListener('change', (e) => setRhythm(e.target.checked));
-  $('rhythm-use').addEventListener('change', (e) => setRhythm(e.target.checked));
   $('rhythm-play').addEventListener('click', () => (engine.running ? stop() : start()));
   $('rhythm-reset').addEventListener('click', () => {
     resetRhythm();

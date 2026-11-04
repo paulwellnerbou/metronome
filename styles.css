@@ -1079,8 +1079,7 @@ kbd {
 .rhythm-meta { margin: 2px 0 0; color: var(--faint); font-size: 0.84rem; }
 .rhythm-close { align-self: start; }
 
-.rhythm-use { padding: 0 20px 4px; }
-.rhythm-use .switch-text { font-size: 0.88rem; }
+.rhythm-off { margin: 3px 0 0; color: var(--brass); font-size: 0.8rem; font-weight: 600; }
 
 .rhythm-bars { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 6px 20px 18px; transition: opacity 0.2s ease; }
 .rhythm-dialog.is-off .rhythm-bars { opacity: 0.6; }
@@ -1138,7 +1137,6 @@ kbd {
 @media (max-width: 520px) {
   .rhythm-dialog { width: calc(100% - 16px); max-height: calc(100dvh - 16px); }
   .rhythm-head { padding: 14px 10px 4px 14px; gap: 12px; }
-  .rhythm-use { padding: 0 14px 2px; }
   .rhythm-bars { padding: 6px 14px 14px; }
   .rhythm-foot { padding: 10px 14px 14px; }
   .rgrid { --label: 44px; --group-gap: 3px; gap: 4px 2px; }
