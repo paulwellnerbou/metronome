@@ -227,7 +227,14 @@ const VOICES = {
 
   drums(ctx, dest, time, step) {
     if (step.hits !== undefined) { kitHits(ctx, dest, time, step); return; }
-    const { kick, snare, hat } = kitFor(step);
+    const kit = kitFor(step);
+    const { kick, snare } = kit;
+    // The shaker in the hi-hat's place, but at its own levels: the drums don't
+    // mask it, so it is not kept down under them; the beat leads the eighths.
+    const weak = step.offbeat || (step.unit === 8 && step.role === '.');
+    const hat = step.shaker
+      ? (c, d, t) => (step.backstroke ? kit.shakerBack : kit.shaker)(c, d, t, weak ? 0.75 : 1)
+      : kit.hat;
     if (step.offbeat) { hat(ctx, dest, time, 0.7); return; }
     // The kick is the one, and only the one: a second kick inside the bar
     // (beat 3 of 4/4) makes the bar sound half as long as it is.
@@ -264,7 +271,7 @@ const VOICES = {
   },
 };
 
-// step: { sound, role, group, offbeat, unit, eighths, electronic, hits?, backstroke? }
+// step: { sound, role, group, offbeat, unit, eighths, shaker, electronic, hits?, backstroke? }
 export function playStep(ctx, dest, time, step) {
   (VOICES[step.sound] || VOICES.click)(ctx, dest, time, step);
 }

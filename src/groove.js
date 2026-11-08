@@ -18,6 +18,7 @@ const bit = (id) => 1 << INSTRUMENTS.findIndex((inst) => inst.id === id);
 const KICK = bit('kick');
 const SNARE = bit('snare');
 const HAT = bit('hat');
+const SHAKER = bit('shaker');
 
 // The grid is in eighths: two per quarter-note beat, one per eighth-note beat.
 export const slotsPerBeat = (sig) => (sig.unit === 4 ? 2 : 1);
@@ -31,14 +32,15 @@ export function slotAt(pos, sig) {
 
 // What the kit plays on its own, so switching to a rhythm of one's own starts
 // from what was just heard.
-export function defaultGroove(sig, eighths, bars) {
+export function defaultGroove(sig, eighths, bars, shaker = false) {
   const bar = [];
+  const fill = shaker && eighths ? SHAKER : HAT;
   [...sig.pattern].forEach((role) => {
     if (sig.unit === 8) {
-      bar.push(HAT | (role === 'A' ? KICK : role === 'a' ? SNARE : 0));
+      bar.push(fill | (role === 'A' ? KICK : role === 'a' ? SNARE : 0));
       return;
     }
-    const hat = eighths ? HAT : 0;
+    const hat = eighths ? fill : 0;
     bar.push((role === 'A' ? KICK : SNARE) | hat, hat);
   });
   return resize(bar, bars * bar.length);

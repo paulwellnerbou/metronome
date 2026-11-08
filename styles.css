@@ -672,16 +672,16 @@ input[type="range"]:active::-webkit-slider-thumb { scale: 1.12; }
 .round-btn {
   width: 46px; height: 46px;
   display: grid; place-items: center;
-  padding: 0 0 2px;
+  padding: 0;
   border-radius: 50%;
   border: 1px solid var(--line);
   background: var(--fill-1);
   color: var(--ink);
-  font-size: 1.55rem; font-weight: 500; line-height: 1;
   cursor: pointer;
   user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
   transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease, opacity 0.15s ease;
 }
+.round-btn svg { width: 22px; height: 22px; }
 .round-btn:hover { background: var(--brass-soft); border-color: var(--brass); }
 .round-btn:active { transform: scale(0.93); }
 .round-btn:focus-visible { outline: none; border-color: var(--brass); box-shadow: 0 0 0 3px var(--brass-soft); }
@@ -840,36 +840,83 @@ input[type="range"]:active::-webkit-slider-thumb { scale: 1.12; }
   .sound-chips .chip { flex-direction: column; gap: 3px; height: 58px; }
 }
 
-/* Two kits for one sound: both in sight, the lit thumb on the one playing. */
-.kit-switch {
-  position: relative;
-  display: grid; grid-template-columns: 1fr 1fr;
-  width: 100%; height: 44px; margin-top: 6px; padding: 3px;
+/* The kit's switches: a label in the frame, then the options under a sliding
+   thumb. Type is one button showing both kits; the eighths go on the hi-hat,
+   on the shaker, or nowhere, with off between. */
+.seg {
+  display: flex;
+  height: 44px; margin-top: 6px; padding: 3px;
   border-radius: 10px;
   border: 1px solid var(--line);
   background: var(--fill-1);
+  transition: border-color 0.15s ease;
+}
+.seg + .seg { margin-top: 8px; }
+.seg-label {
+  flex: none; width: 92px;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 0 10px 0 7px; margin-right: 3px;
+  border-right: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.8rem; font-weight: 700; letter-spacing: 0.02em;
+}
+.seg-label svg { width: 18px; height: 18px; flex: none; color: var(--brass); }
+.seg:has(.kit-switch:hover) { border-color: var(--brass); }
+.kit-switch {
+  position: relative; flex: 1;
+  display: grid; grid-template-columns: 1fr 1fr;
+  padding: 0; border: 0; border-radius: 7px;
+  background: none;
   color: var(--muted);
   font: inherit; font-size: 0.92rem; font-weight: 700;
   cursor: pointer;
   user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
-  transition: border-color 0.15s ease, transform 0.1s ease;
+  transition: transform 0.1s ease;
 }
-.kit-switch:hover { border-color: var(--brass); }
 .kit-switch:active { transform: scale(0.98); }
-.kit-switch:focus-visible { outline: none; border-color: var(--brass); box-shadow: 0 0 0 3px var(--brass-soft); }
+.kit-switch:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--brass); }
 .kit-thumb {
-  position: absolute; top: 3px; bottom: 3px; left: 3px;
-  width: calc(50% - 3px);
+  position: absolute; top: 0; bottom: 0; left: 0;
+  width: 50%;
   border-radius: 7px;
   background: var(--btn-bg);
   box-shadow: 0 2px 8px -2px var(--brass-glow);
   transition: translate 0.34s cubic-bezier(0.34, 1.3, 0.5, 1);
 }
 .kit-switch[data-kit="electronic"] .kit-thumb { translate: 100% 0; }
-.kit-opt { position: relative; display: grid; place-items: center; transition: color 0.25s ease; }
+.kit-opt, .seg-opt { position: relative; display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; transition: color 0.25s ease; }
+.kit-opt svg, .seg-opt svg { width: 18px; height: 18px; flex: none; color: var(--brass); transition: color 0.25s ease; }
 .kit-switch:hover .kit-opt { color: var(--ink); }
 .kit-switch[data-kit="acoustic"] [data-opt="acoustic"],
 .kit-switch[data-kit="electronic"] [data-opt="electronic"] { color: var(--btn-fg); }
+.kit-switch[data-kit="acoustic"] [data-opt="acoustic"] svg,
+.kit-switch[data-kit="electronic"] [data-opt="electronic"] svg,
+.seg-opt[aria-checked="true"] svg { color: currentColor; }
+.seg-opts { position: relative; flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); }
+.seg-thumb {
+  position: absolute; top: 0; bottom: 0; left: 0;
+  width: calc(100% / 3);
+  border-radius: 7px;
+  background: var(--btn-bg);
+  box-shadow: 0 2px 8px -2px var(--brass-glow);
+  transition: translate 0.34s cubic-bezier(0.34, 1.3, 0.5, 1), background 0.2s ease, box-shadow 0.2s ease;
+}
+.seg[data-value="off"] .seg-thumb { translate: 100% 0; background: var(--track-off); box-shadow: none; }
+.seg[data-value="shaker"] .seg-thumb { translate: 200% 0; }
+.seg-opt {
+  padding: 0; border: 0; border-radius: 7px; background: none;
+  color: var(--muted);
+  font: inherit; font-size: 0.92rem; font-weight: 700;
+  cursor: pointer;
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
+.seg-opt:hover:not(:disabled) { color: var(--ink); }
+.seg-opt:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--brass); }
+.seg-opt[aria-checked="true"] { color: var(--btn-fg); }
+.seg[data-value="off"] .seg-opt[aria-checked="true"] { color: var(--ink); }
+.seg-opt:disabled { cursor: default; opacity: 0.45; }
+.seg.is-fixed { opacity: 0.55; }
+.seg.is-fixed .seg-opt { cursor: default; }
 
 /* Areas that come and go with a setting grow from no height and fade in. */
 .reveal {
@@ -926,15 +973,16 @@ input[type="range"]:active::-webkit-slider-thumb { scale: 1.12; }
 }
 .step-btn {
   width: 44px; height: 44px;
-  padding: 0 0 2px;
+  display: grid; place-items: center;
+  padding: 0;
   border: 0;
   background: none;
   color: var(--brass);
-  font-size: 1.35rem; font-weight: 500; line-height: 1;
   cursor: pointer;
   user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
   transition: background 0.13s ease, opacity 0.13s ease;
 }
+.step-btn svg { width: 18px; height: 18px; }
 .step-btn:hover { background: var(--brass-soft); }
 .step-btn:focus-visible { outline: none; background: var(--brass-soft); }
 .step-btn:disabled { opacity: 0.3; cursor: default; background: none; }
@@ -1117,6 +1165,9 @@ kbd {
   .ghost-btn { min-width: 84px; padding: 0 12px; }
   .transport { gap: 8px; }
   .sound-chips { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .seg-label { width: 80px; gap: 4px; padding: 0 8px 0 5px; font-size: 0.75rem; }
+  .seg-label svg, .kit-opt svg, .seg-opt svg { width: 16px; height: 16px; }
+  .kit-opt, .seg-opt { gap: 4px; }
 }
 
 /* --- Rhythm editor ----------------------------------------------------------------*/

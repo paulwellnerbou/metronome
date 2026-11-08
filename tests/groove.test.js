@@ -12,6 +12,8 @@ test('the default is what the kit plays on its own', () => {
   assert.deepEqual(defaultGroove(signature('4/4'), false, 1), [K, 0, S, 0, S, 0, S, 0]);
   assert.deepEqual(defaultGroove(signature('6/8'), false, 1), [K | H, H, H, S | H, H, H]);
   assert.equal(defaultGroove(signature('3/4'), true, 4).length, 4 * 6);
+  assert.deepEqual(defaultGroove(signature('4/4'), true, 1, true).slice(0, 2), [K | SH, SH]);
+  assert.deepEqual(defaultGroove(signature('4/4'), false, 1, true).slice(0, 2), [K, 0]);
 });
 
 test('a slot counts eighths through the phrase', () => {

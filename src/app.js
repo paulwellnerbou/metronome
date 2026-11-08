@@ -21,7 +21,7 @@ const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
 
 const STORE = 'metronome-state';
 const DEFAULTS = {
-  tempo: 100, sig: '4/4', sound: 'click', eighths: false, swing: false, electronic: false, bars: 4,
+  tempo: 100, sig: '4/4', sound: 'click', eighths: false, shaker: false, swing: false, electronic: false, bars: 4,
   trainer: false, step: 5, target: 140, rhythm: false, groove: null, view: 'ring', volume: 80,
 };
 const STEP_MAX = 30;
@@ -37,6 +37,7 @@ function loadState() {
     sig: signature(saved.sig).id,
     sound: SOUNDS.some((s) => s.id === saved.sound) ? saved.sound : DEFAULTS.sound,
     eighths: saved.eighths === true,
+    shaker: saved.shaker === true,
     swing: saved.swing === true,
     electronic: saved.electronic === true,
     bars: int(saved.bars, 1, BARS_MAX, DEFAULTS.bars),
@@ -90,6 +91,7 @@ function engineCfg() {
     bars: state.bars,
     sound: state.sound,
     electronic: state.electronic,
+    shaker: state.eighths && state.shaker,
     trainer: { on: state.trainer && !editing, step: state.step, target: state.target },
   };
 }
@@ -311,9 +313,9 @@ function holdRepeat(btn, fn) {
 
 function initStepper(el, { key, min, max, format, caption, onChange }) {
   el.innerHTML =
-    '<button type="button" class="step-btn" data-dir="-1" aria-label="Less">&minus;</button>' +
+    '<button type="button" class="step-btn" data-dir="-1" aria-label="Less"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5.5 12h13" /></svg></button>' +
     `<output class="step-val"${caption ? ` data-caption="${caption}"` : ''}></output>` +
-    '<button type="button" class="step-btn" data-dir="1" aria-label="More">+</button>';
+    '<button type="button" class="step-btn" data-dir="1" aria-label="More"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5.5 12h13M12 5.5v13" /></svg></button>';
   const out = el.querySelector('output');
   const btns = [...el.querySelectorAll('button')];
   const render = () => {
@@ -386,21 +388,32 @@ function initChips(container, items, key, onChange, icons = {}) {
 }
 
 // Eighth-note subdivisions only exist where the beat is a quarter. In an
-// eighth-note meter the switch shows what happens anyway: the kit's hi-hat is
-// on every eighth, the other sounds have nothing finer to play.
+// eighth-note meter the controls show what happens anyway: the kit plays every
+// eighth, the other sounds have nothing finer to play. A rhythm of one's own
+// sets its eighths in its grid; the kit's choice waits for when it plays on
+// its own again.
 function renderEighths() {
   const custom = rhythmOn();
   const input = $('eighths');
   const drums = state.sound === 'drums';
   const fixed = signature(state.sig).unit === 8;
-  // A rhythm of one's own puts the hi-hat where its grid says; the switch keeps
-  // the player's own choice for when the kit plays on its own again.
-  input.disabled = fixed || custom;
-  input.checked = fixed ? drums : state.eighths;
-  const label = input.closest('.switch');
-  label.classList.toggle('is-fixed', fixed || custom);
-  label.title = custom ? 'The custom rhythm sets the hi-hat' : '';
-  $('eighths-text').textContent = drums ? 'Hi-hat on eighths' : 'Eighth-note ticks';
+  // The kit chooses what plays its eighths; there is nothing to switch off
+  // where the eighths are the beat.
+  $('eighths-switch').hidden = drums;
+  const seg = $('kit-eighths');
+  const value = state.eighths && state.shaker ? 'shaker' : state.eighths || fixed ? 'hat' : 'off';
+  seg.dataset.value = value;
+  seg.classList.toggle('is-fixed', custom);
+  seg.title = custom ? 'The custom rhythm sets the eighths' : '';
+  seg.querySelectorAll('.seg-opt').forEach((opt) => {
+    const on = opt.dataset.value === value;
+    opt.setAttribute('aria-checked', String(on));
+    opt.tabIndex = on ? 0 : -1;
+    opt.disabled = custom || (fixed && opt.dataset.value === 'off');
+  });
+  input.disabled = fixed;
+  input.checked = !fixed && state.eighths;
+  $('eighths-switch').classList.toggle('is-fixed', fixed);
   // only a beat split in two can swing
   const swing = $('swing');
   const off = subsFor(signature(state.sig), state.eighths || custom) !== 2;
@@ -524,7 +537,7 @@ const rhythmOn = () => state.rhythm && state.sound === 'drums';
 // plays on its own.
 function loadCells() {
   const sig = signature(state.sig);
-  cells = decodeGroove(state.groove, sig, state.bars) ?? defaultGroove(sig, state.eighths, state.bars);
+  cells = decodeGroove(state.groove, sig, state.bars) ?? defaultGroove(sig, state.eighths, state.bars, state.shaker);
 }
 
 // Back to the kit's own pattern. A rhythm that is on keeps it as its own, so a
@@ -1133,13 +1146,31 @@ function init() {
     reconfigure(false);
   }, SOUND_ICONS);
 
-  $('eighths').addEventListener('change', (e) => {
-    state.eighths = e.target.checked;
+  const setEighths = (eighths, shaker = state.shaker) => {
+    state.eighths = eighths;
+    state.shaker = shaker;
     // until there is a rhythm of one's own, the grid shows what the kit plays
     if (!state.groove) loadCells();
     save();
     renderEighths();
     reconfigure(false);
+  };
+  $('eighths').addEventListener('change', (e) => setEighths(e.target.checked));
+  const seg = $('kit-eighths');
+  const pick = (opt) => {
+    if (!opt || opt.disabled) return;
+    const v = opt.dataset.value;
+    // off keeps the instrument, for the click's eighth-note ticks and the way back
+    setEighths(v !== 'off', v === 'off' ? state.shaker : v === 'shaker');
+  };
+  seg.addEventListener('click', (e) => pick(e.target.closest('.seg-opt')));
+  seg.addEventListener('keydown', (e) => {
+    const dir = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 }[e.key];
+    if (!dir) return;
+    e.preventDefault();
+    const opts = [...seg.querySelectorAll('.seg-opt:not(:disabled)')];
+    const next = opts[opts.indexOf(document.activeElement) + dir];
+    if (next) { pick(next); next.focus(); }
   });
   // one button showing both kits, so every press flips it, wherever it lands
   $('kit').addEventListener('click', () => {

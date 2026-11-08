@@ -20,6 +20,12 @@ export function readLink(search) {
     const v = q.get(key);
     if (v !== null) out[key] = v === '1' || v === 'true';
   }
+  // the kit's eighths on the hi-hat (1) or the shaker
+  const eighths = q.get('eighths');
+  if (eighths !== null) {
+    out.shaker = eighths === 'shaker';
+    if (out.shaker) out.eighths = true;
+  }
   // "6-8" for anyone typing a link by hand, where a slash looks like a path
   const sig = q.get('sig');
   if (sig) out.sig = sig.replace('-', '/');
@@ -41,7 +47,7 @@ export function writeLink(state) {
     bpm: state.tempo,
     sig: state.sig,
     sound: state.sound,
-    eighths: state.eighths ? 1 : 0,
+    eighths: state.eighths ? (state.shaker ? 'shaker' : 1) : 0,
     swing: state.swing ? 1 : 0,
     electronic: state.electronic ? 1 : 0,
     bars: state.bars,

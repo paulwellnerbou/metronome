@@ -142,6 +142,7 @@ export function createEngine() {
         offbeat: pos.sub > 0,
         unit: cfg.sig.unit,
         eighths: cfg.subs > 1,
+        shaker: cfg.shaker,
         hits: cfg.groove ? cfg.groove[slotAt(pos, cfg.sig)] : undefined,
         backstroke: (pos.beat * slotsPerBeat(cfg.sig) + pos.sub) % 2 === 1,
       });

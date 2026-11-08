@@ -21,6 +21,8 @@ const SHELL = [
   'sounds/kick.wav',
   'sounds/snare.wav',
   'sounds/hat.wav',
+  'sounds/shaker.wav',
+  'sounds/shaker-back.wav',
   'manifest.webmanifest',
   'favicon.svg',
   'icons/icon-192.png',

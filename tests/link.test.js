@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readLink, writeLink } from '../src/link.js';
 
 const setup = {
-  tempo: 94, sig: '6/8', sound: 'drums', eighths: true, swing: false, electronic: true,
+  tempo: 94, sig: '6/8', sound: 'drums', eighths: true, shaker: false, swing: false, electronic: true,
   bars: 4, trainer: true, step: 5, target: 140, rhythm: false, volume: 30, view: 'bar',
 };
 
@@ -12,6 +12,16 @@ test('a link round-trips the exercise and nothing personal', () => {
   assert.equal(link, '?bpm=94&sig=6/8&sound=drums&eighths=1&swing=0&electronic=1&bars=4&trainer=1&rhythm=0&step=5&target=140');
   const { volume, view, ...exercise } = setup;
   assert.deepEqual(readLink(link), exercise);
+});
+
+test('eighths travel on the hi-hat or the shaker', () => {
+  const link = writeLink({ ...setup, shaker: true });
+  assert.ok(link.includes('eighths=shaker'));
+  assert.equal(readLink(link).eighths, true);
+  assert.equal(readLink(link).shaker, true);
+  // the hi-hat is spelled out too, so a visitor's shaker doesn't leak in
+  assert.equal(readLink('?eighths=1').shaker, false);
+  assert.equal(writeLink({ ...setup, eighths: false, shaker: true }).includes('eighths=0'), true);
 });
 
 test('an idle trainer leaves its step and target out', () => {
