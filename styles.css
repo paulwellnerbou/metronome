@@ -1135,7 +1135,9 @@ kbd {
 }
 .rhythm-dialog[open] { display: flex; flex-direction: column; }
 .rhythm-dialog::backdrop { background: rgba(8, 10, 14, 0.55); backdrop-filter: blur(3px); }
-.rhythm-sheet { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+/* The dialog only has a max-height, so a 0 basis leaves Safari with an empty
+   sheet. Sized from the content, both still shrink to fit and scroll. */
+.rhythm-sheet { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
 
 .rhythm-head {
   display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px;
@@ -1175,7 +1177,7 @@ kbd {
   transform: rotate(45deg);
   pointer-events: none;
 }
-.rhythm-bars { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 6px 20px 18px; transition: opacity 0.2s ease; }
+.rhythm-bars { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 6px 20px 18px; transition: opacity 0.2s ease; }
 .rbar + .rbar { margin-top: 14px; }
 .rbar-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 30px; margin-bottom: 4px; }
 .rbar-head h3 {

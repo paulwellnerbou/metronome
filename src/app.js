@@ -74,6 +74,10 @@ function syncLink() {
   }, 250);
 }
 
+// The rhythm editor is for hearing the groove, at the tempo it is heard at:
+// while it is open, the trainer holds instead of climbing.
+let editing = false;
+
 function engineCfg() {
   const sig = signature(state.sig);
   const rhythm = rhythmOn();
@@ -86,7 +90,7 @@ function engineCfg() {
     bars: state.bars,
     sound: state.sound,
     electronic: state.electronic,
-    trainer: { on: state.trainer, step: state.step, target: state.target },
+    trainer: { on: state.trainer && !editing, step: state.step, target: state.target },
   };
 }
 
@@ -687,12 +691,16 @@ function initRhythm() {
 
   $('rhythm-edit').addEventListener('click', () => {
     buildRhythm();
+    editing = true;
+    engine.configure(engineCfg());
     dialog.showModal();
     if (engine.running && lastStep) markRhythmSlot(lastStep);
   });
   // The sheet leaves the way it came in; Escape takes the same way out.
   const close = () => {
     if (!dialog.open || dialog.classList.contains('closing')) return;
+    editing = false;
+    engine.configure(engineCfg());
     if (calm.matches) { dialog.close(); return; }
     dialog.classList.add('closing');
     const ended = (e) => { if (e.target === dialog) done(); };
@@ -710,7 +718,12 @@ function initRhythm() {
   // the backdrop is the dialog's own box; the sheet covers the rest of it
   dialog.addEventListener('click', (e) => { if (e.target === dialog) close(); });
   dialog.addEventListener('cancel', (e) => { e.preventDefault(); close(); });
-  dialog.addEventListener('close', () => { dialog.classList.remove('closing'); slotEls = []; nowSlot = -1; });
+  dialog.addEventListener('close', () => {
+    dialog.classList.remove('closing');
+    slotEls = [];
+    nowSlot = -1;
+    if (editing) { editing = false; engine.configure(engineCfg()); }
+  });
 
   $('rhythm').addEventListener('change', (e) => setRhythm(e.target.checked));
   $('rhythm-play').addEventListener('click', () => (engine.running ? stop() : start()));

@@ -4,7 +4,7 @@
 
 export const SOUNDS = [
   { id: 'click', label: 'Click' },
-  { id: 'drums', label: 'Drum kit' },
+  { id: 'drums', label: 'Drums' },
   { id: 'claves', label: 'Claves' },
   { id: 'beep', label: 'Beep' },
 ];
