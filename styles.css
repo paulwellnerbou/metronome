@@ -694,6 +694,23 @@ input[type="range"]:active::-webkit-slider-thumb { scale: 1.12; }
   gap: 12px;
   margin-top: 14px;
 }
+.bt-hint {
+  display: flex; align-items: center; gap: 10px;
+  margin: 14px 0 0; padding: 8px 6px 8px 12px;
+  border: 1px solid var(--line); border-radius: 12px;
+  background: var(--fill-1);
+  color: var(--muted); font-size: 0.85rem; line-height: 1.4;
+}
+.bt-hint > svg { width: 18px; height: 18px; flex: none; color: var(--brass); }
+.bt-hint span { flex: 1 1 auto; }
+.bt-dismiss {
+  flex: none; display: grid; place-items: center;
+  width: 36px; height: 36px; border: 0; border-radius: 8px;
+  background: none; color: var(--faint); cursor: pointer;
+}
+.bt-dismiss:hover { color: var(--ink); background: var(--fill-1); }
+.bt-dismiss:focus-visible { outline: 2px solid var(--brass); outline-offset: 1px; }
+.bt-dismiss svg { width: 16px; height: 16px; }
 .ghost-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   height: 48px; min-width: 96px; padding: 0 16px;

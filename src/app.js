@@ -197,8 +197,26 @@ function onStep(step) {
   }
 }
 
+// Bluetooth is the one common output that delays sound this much, and the one
+// that drops it: a lost packet takes its beats with it, which no app can help.
+const BLUETOOTH_LATENCY = 0.15;
+const BT_HINT = 'metronome-bt-hint';
+let latencyCheckedAt = 0;
+
+function checkOutput() {
+  const now = performance.now();
+  if (now - latencyCheckedAt < 1000) return;
+  latencyCheckedAt = now;
+  const latency = engine.outputLatency();
+  if (latency === null) return;
+  let dismissed = false;
+  try { dismissed = localStorage.getItem(BT_HINT) === 'off'; } catch (e) { /* private mode */ }
+  reveal($('bt-reveal'), latency > BLUETOOTH_LATENCY && !dismissed);
+}
+
 function frame() {
   if (!engine.running) return;
+  checkOutput();
   for (const step of engine.drain()) onStep(step);
   if (lastStep) {
     const into = clamp((engine.clock() - lastStep.time) / lastStep.dur, 0, 1);
@@ -987,6 +1005,14 @@ function initDebug() {
   }, 500);
 }
 
+function initBluetoothHint() {
+  reveal($('bt-reveal'), false);
+  $('bt-dismiss').addEventListener('click', () => {
+    try { localStorage.setItem(BT_HINT, 'off'); } catch (e) { /* private mode */ }
+    reveal($('bt-reveal'), false);
+  });
+}
+
 function initUpdates() {
   window.addEventListener('load', checkForUpdate);
   document.addEventListener('visibilitychange', () => {
@@ -1056,6 +1082,7 @@ function init() {
   initInstall();
   initUpdates();
   initDebug();
+  initBluetoothHint();
   initShare();
   loadCells();
   // a saved or linked rhythm that didn't fit gives way to the one in the grid

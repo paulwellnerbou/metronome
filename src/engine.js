@@ -52,11 +52,7 @@ export function createEngine() {
 
   function audio() {
     if (ctx) return ctx;
-    // Android's default low-latency stream runs out of sound under load, which
-    // drops beats. The larger buffer delays everything alike, and clock()
-    // takes the delay back out for the display.
-    const android = /Android/i.test(navigator.userAgent);
-    ctx = new (window.AudioContext || window.webkitAudioContext)(android ? { latencyHint: 'playback' } : undefined);
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
     // iOS plays Web Audio in the "ambient" session, which the ring/silent
     // switch mutes. "playback" is what music apps use, and is exempt.
     try {
@@ -262,6 +258,12 @@ export function createEngine() {
         baseLatency: ctx.baseLatency,
         outputLatency: ctx.outputLatency,
       };
+    },
+
+    // How long a sound takes from the context to the speaker, once the
+    // browser knows; Bluetooth is what makes it long.
+    outputLatency() {
+      return ctx && ctx.state === 'running' && ctx.outputLatency > 0 ? ctx.outputLatency : null;
     },
 
     // The audio clock as it is heard: what was scheduled for `t` leaves the
