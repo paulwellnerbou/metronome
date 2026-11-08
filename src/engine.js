@@ -9,7 +9,13 @@ import { decodeSamples, fetchSamples, playStep } from './sounds.js';
 import { slotAt } from './groove.js';
 
 const TICK_MS = 25;
-const AHEAD = 0.12;
+// How long the main thread may stall before a beat goes missing. Phones stall
+// for a tenth of a second now and then; a longer queue only delays what a
+// setting change is heard on, not the display.
+const AHEAD = 0.3;
+// A stall shorter than this is a hiccup, and the beat goes on where it would
+// have been. Anything longer is a break: a frozen tab, a locked phone.
+const BREAK = 2;
 const LEAD_IN = 0.1;      // a fresh context needs a moment before its clock is steady
 const HEADROOM = 0.85;    // kick and hi-hat land together; keep their sum under full scale
 const DUCK = 0.008;
@@ -29,20 +35,30 @@ export function createEngine() {
   let volume = 0.8;
   let events = [];
   let decoding = false;
+  let fresh = false;      // nothing queued yet since the start
   const recorded = () => cfg.sound === 'drums' && !cfg.electronic;
 
   function audio() {
     if (ctx) return ctx;
-    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    // Android's default low-latency stream runs out of sound under load, which
+    // drops beats. The larger buffer delays everything alike, and clock()
+    // takes the delay back out for the display.
+    const android = /Android/i.test(navigator.userAgent);
+    ctx = new (window.AudioContext || window.webkitAudioContext)(android ? { latencyHint: 'playback' } : undefined);
     // iOS plays Web Audio in the "ambient" session, which the ring/silent
     // switch mutes. "playback" is what music apps use, and is exempt.
     try {
       if (navigator.audioSession) navigator.audioSession.type = 'playback';
     } catch (e) { /* an unsettable session must not cost us the sound */ }
-    master = ctx.createGain();
-    master.gain.value = volume * HEADROOM;
-    master.connect(ctx.destination);
+    master = output();
     return ctx;
+  }
+
+  function output() {
+    const gain = ctx.createGain();
+    gain.gain.value = volume * HEADROOM;
+    gain.connect(ctx.destination);
+    return gain;
   }
 
   // Covers iOS's 'interrupted' (a call, Siri) as well as 'suspended'.
@@ -66,9 +82,21 @@ export function createEngine() {
   function tick() {
     if (!running) return;
     const now = ctx.currentTime;
-    // After a stall (a suspended context, a frozen tab) the backlog would all
-    // fire at once as one burst. Pick the beat up from here instead.
-    if (nextTime < now) nextTime = now + LEAD_IN;
+    if (nextTime < now) {
+      if (fresh || now - nextTime > BREAK) {
+        // Before the first beat there is no time to keep, and after a break
+        // the player has stopped too: pick the beat up from here.
+        nextTime = now + LEAD_IN;
+      } else {
+        // Beats due during the stall can't sound on time any more, and played
+        // late they'd come out as a burst. Drop them and stay on the grid, so
+        // the beat still meets the player's own.
+        while (nextTime < now) {
+          nextTime += stepSeconds(pos, cfg);
+          pos = nextPos(pos, cfg);
+        }
+      }
+    }
     // The recorded drums decode only once there is a context, i.e. on the first
     // start; the lead-in leaves time for that before the first beat.
     if (decoding && now < nextTime - LAST_CALL) return;
@@ -88,6 +116,7 @@ export function createEngine() {
       events.push({ ...pos, time: nextTime, dur, ...phraseSpan(pos, cfg) });
       nextTime += dur;
       pos = nextPos(pos, cfg);
+      fresh = false;
     }
   }
 
@@ -161,6 +190,7 @@ export function createEngine() {
       pos = firstPos(tempo);
       nextTime = ctx.currentTime + LEAD_IN;
       events = [];
+      fresh = true;
       running = true;
       setTimer(true);
       tick();
@@ -171,8 +201,13 @@ export function createEngine() {
       running = false;
       setTimer(false);
       events = [];
-      // whatever is already queued inside the look-ahead would still sound
-      master.gain.setTargetAtTime(0, ctx.currentTime, DUCK);
+      // Whatever is queued inside the look-ahead would still sound, and a
+      // quick restart would bring it back up. It fades out on an output of
+      // its own, which is then let go.
+      const queued = master;
+      queued.gain.setTargetAtTime(0, ctx.currentTime, DUCK);
+      setTimeout(() => queued.disconnect(), 200);
+      master = output();
     },
 
     wake,
