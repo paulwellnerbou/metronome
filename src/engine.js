@@ -38,6 +38,16 @@ export function createEngine() {
   let decoding = false;
   let fresh = false;      // nothing queued yet since the start
   let shown = 0;
+
+  // What went wrong and when, for the diagnostics overlay: a phone can't be
+  // watched from a desk, and a missing beat has three quite different causes.
+  let stats = null;
+  let base = null;        // the audio and wall clocks at the start
+  let lastWall = 0;
+  function note(what) {
+    stats.incidents.unshift({ at: performance.now() - base.wall, what });
+    stats.incidents.length = Math.min(stats.incidents.length, 12);
+  }
   const recorded = () => cfg.sound === 'drums' && !cfg.electronic;
 
   function audio() {
@@ -84,19 +94,43 @@ export function createEngine() {
   function tick() {
     if (!running) return;
     const now = ctx.currentTime;
+    const wall = performance.now();
+    const gap = wall - lastWall;
+    lastWall = wall;
+    stats.ticks += 1;
+    stats.maxGap = Math.max(stats.maxGap, gap);
+    if (gap > 150) note(`timer late: ${Math.round(gap)} ms between ticks`);
+    // The audio clock jumping behind the wall clock: sound the device asked
+    // for and didn't get, or a suspended context. The two clocks also drift
+    // apart slowly, which is harmless, so only a jump between ticks counts.
+    const stamp = ctx.getOutputTimestamp && ctx.getOutputTimestamp();
+    const lag = stamp && stamp.performanceTime > 0
+      ? (stamp.performanceTime - base.wall) / 1000 - (stamp.contextTime - base.ctx)
+      : (wall - base.wall) / 1000 - (now - base.ctx);
+    if (stats.ticks > 40 && lag - stats.lag > 0.025) {
+      stats.glitches += 1;
+      note(`audio clock jumped behind: ${Math.round((lag - stats.lag) * 1000)} ms`);
+    }
+    stats.lag = lag;
+    if (ctx.state !== stats.state) { note(`audio ${ctx.state}`); stats.state = ctx.state; }
     if (nextTime < now) {
       if (fresh || now - nextTime > BREAK) {
         // Before the first beat there is no time to keep, and after a break
         // the player has stopped too: pick the beat up from here.
+        if (!fresh) { stats.breaks += 1; note(`break: ${Math.round((now - nextTime) * 1000)} ms, restarted the beat`); }
         nextTime = now + LEAD_IN;
       } else {
         // Beats due during the stall can't sound on time any more, and played
         // late they'd come out as a burst. Drop them and stay on the grid, so
         // the beat still meets the player's own.
+        let dropped = 0;
         while (nextTime < now) {
           nextTime += stepSeconds(pos, cfg);
           pos = nextPos(pos, cfg);
+          dropped += 1;
         }
+        stats.dropped += dropped;
+        note(`dropped ${dropped} ${dropped === 1 ? 'beat' : 'beats'} that fell due in a stall`);
       }
     }
     // The recorded drums decode only once there is a context, i.e. on the first
@@ -193,6 +227,9 @@ export function createEngine() {
       nextTime = ctx.currentTime + LEAD_IN;
       events = [];
       fresh = true;
+      base = { ctx: ctx.currentTime, wall: performance.now() };
+      lastWall = base.wall;
+      stats = { ticks: 0, maxGap: 0, lag: 0, glitches: 0, dropped: 0, breaks: 0, state: ctx.state, incidents: [] };
       running = true;
       setTimer(true);
       tick();
@@ -213,6 +250,19 @@ export function createEngine() {
     },
 
     wake,
+
+    // Diagnostics: the counters since the last start, and the context's own
+    // figures.
+    stats() {
+      if (!ctx || !stats) return null;
+      return {
+        ...stats,
+        since: (performance.now() - base.wall) / 1000,
+        sampleRate: ctx.sampleRate,
+        baseLatency: ctx.baseLatency,
+        outputLatency: ctx.outputLatency,
+      };
+    },
 
     // The audio clock as it is heard: what was scheduled for `t` leaves the
     // speaker outputLatency later, which on Bluetooth is far from nothing.

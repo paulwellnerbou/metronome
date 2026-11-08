@@ -944,6 +944,49 @@ async function checkForUpdate() {
   } catch (e) { /* offline: this release is the one there is */ }
 }
 
+// --- Diagnostics -----------------------------------------------------------------
+
+// `?debug=1` turns an overlay on and `?debug=0` off again. The setting sticks,
+// so an installed app, which opens without the query, shows it too.
+function initDebug() {
+  const flag = new URLSearchParams(location.search).get('debug');
+  try {
+    if (flag === '1') localStorage.setItem('metronome-debug', '1');
+    if (flag === '0') localStorage.removeItem('metronome-debug');
+    if (localStorage.getItem('metronome-debug') !== '1') return;
+  } catch (e) { return; }
+
+  const longTasks = { count: 0, max: 0, last: [] };
+  try {
+    new PerformanceObserver((list) => {
+      for (const task of list.getEntries()) {
+        longTasks.count += 1;
+        longTasks.max = Math.max(longTasks.max, task.duration);
+        if (task.duration > 100) longTasks.last = [Math.round(task.duration), ...longTasks.last].slice(0, 6);
+      }
+    }).observe({ type: 'longtask', buffered: false });
+  } catch (e) { /* not in this browser */ }
+
+  const box = document.createElement('pre');
+  box.className = 'debug';
+  document.body.append(box);
+  const ms = (s) => `${Math.round(s * 1000)} ms`;
+  const time = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+  setInterval(() => {
+    const s = engine.stats();
+    const heap = performance.memory ? `${(performance.memory.usedJSHeapSize / 1e6).toFixed(1)} MB` : 'n/a';
+    const lines = [`${engine.running ? 'playing' : 'stopped'} · heap ${heap} · ${document.querySelectorAll('*').length} nodes`];
+    lines.push(`long tasks ${longTasks.count}, max ${Math.round(longTasks.max)} ms${longTasks.last.length ? ` · ${longTasks.last.join(', ')}` : ''}`);
+    if (s) {
+      lines.push(`${time(s.since)} · ${s.state} · ${s.sampleRate} Hz · latency ${ms(s.baseLatency || 0)} + ${ms(s.outputLatency || 0)}`);
+      lines.push(`timer max gap ${Math.round(s.maxGap)} ms · audio lag ${ms(s.lag)}`);
+      lines.push(`dropped ${s.dropped} · audio jumps ${s.glitches} · breaks ${s.breaks}`);
+      s.incidents.forEach((i) => lines.push(`${time(i.at / 1000)}  ${i.what}`));
+    }
+    box.textContent = lines.join('\n');
+  }, 500);
+}
+
 function initUpdates() {
   window.addEventListener('load', checkForUpdate);
   document.addEventListener('visibilitychange', () => {
@@ -1012,6 +1055,7 @@ function init() {
   initTheme();
   initInstall();
   initUpdates();
+  initDebug();
   initShare();
   loadCells();
   // a saved or linked rhythm that didn't fit gives way to the one in the grid

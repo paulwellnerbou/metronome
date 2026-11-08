@@ -1234,3 +1234,12 @@ kbd {
 @keyframes arrive { from { opacity: 0; scale: 0.8; } }
 @keyframes sheet-in { from { opacity: 0; transform: translateY(14px) scale(0.98); } }
 @keyframes backdrop-in { from { opacity: 0; } }
+
+/* the ?debug=1 overlay */
+.debug {
+  position: fixed; left: 8px; right: 8px; bottom: 8px; z-index: 1000;
+  margin: 0; padding: 8px 10px; border-radius: 8px;
+  background: rgba(0, 0, 0, 0.78); color: #e8f5d0;
+  font: 11px/1.4 ui-monospace, Menlo, monospace; white-space: pre-wrap;
+  pointer-events: none;
+}
