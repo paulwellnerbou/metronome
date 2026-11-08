@@ -20,6 +20,7 @@ const LEAD_IN = 0.1;      // a fresh context needs a moment before its clock is 
 const HEADROOM = 0.85;    // kick and hi-hat land together; keep their sum under full scale
 const DUCK = 0.008;
 const LAST_CALL = 0.03;   // how close the first beat may come before it plays whatever is ready
+const EXTRAPOLATE = 0.1;  // how far clock() may run on past the audio's last report
 
 export function createEngine() {
   let ctx = null;
@@ -36,6 +37,7 @@ export function createEngine() {
   let events = [];
   let decoding = false;
   let fresh = false;      // nothing queued yet since the start
+  let shown = 0;
   const recorded = () => cfg.sound === 'drums' && !cfg.electronic;
 
   function audio() {
@@ -216,6 +218,17 @@ export function createEngine() {
     // speaker outputLatency later, which on Bluetooth is far from nothing.
     clock() {
       if (!ctx) return 0;
+      // currentTime moves a whole audio buffer at a time, which on a phone is
+      // several frames: a ring drawn from it would jerk. The output timestamp
+      // pins the audio clock to the frame clock, which runs smoothly in between.
+      const stamp = ctx.getOutputTimestamp && ctx.getOutputTimestamp();
+      if (stamp && stamp.performanceTime > 0) {
+        // Capped, so a suspended context can't be extrapolated on and on; never
+        // backwards, as the next stamp can land a hair before the guess.
+        const since = Math.min(EXTRAPOLATE, (performance.now() - stamp.performanceTime) / 1000);
+        shown = Math.max(shown, stamp.contextTime + since);
+        return shown;
+      }
       return ctx.currentTime - (ctx.outputLatency || 0);
     },
 

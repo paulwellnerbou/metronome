@@ -915,6 +915,42 @@ function initInstall() {
   }
 }
 
+// --- Updates ----------------------------------------------------------------------
+
+// An installed app is resumed rather than reloaded, so a release can sit unseen
+// for days. Coming back to it, compare what this page loaded with what is
+// served now, and reload while nothing is playing or open.
+const shipped = new Map();   // path → the version this page runs
+
+// HEAD skips the service worker, and no-store skips the HTTP cache.
+async function served(path) {
+  const res = await fetch(path, { method: 'HEAD', cache: 'no-store' });
+  if (!res.ok) throw new Error(`${path}: ${res.status}`);
+  return res.headers.get('etag') || res.headers.get('last-modified');
+}
+
+async function checkForUpdate() {
+  const paths = new Set([location.pathname]);
+  for (const entry of performance.getEntriesByType('resource')) {
+    const url = new URL(entry.name);
+    if (url.origin === location.origin && /\.(js|css|wav)$/.test(url.pathname)) paths.add(url.pathname);
+  }
+  try {
+    const tags = await Promise.all([...paths].map(async (path) => [path, await served(path)]));
+    // A file met for the first time was loaded just now, so it is current.
+    const stale = tags.some(([path, tag]) => shipped.has(path) && shipped.get(path) !== tag);
+    tags.forEach(([path, tag]) => { if (!shipped.has(path)) shipped.set(path, tag); });
+    if (stale && !engine.running && !document.querySelector('dialog[open]')) location.reload();
+  } catch (e) { /* offline: this release is the one there is */ }
+}
+
+function initUpdates() {
+  window.addEventListener('load', checkForUpdate);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') checkForUpdate();
+  });
+}
+
 // --- Sharing ------------------------------------------------------------------------
 
 const setupShareTitle = () => (state.trainer ? 'Share trainer settings' : 'Share settings');
@@ -975,6 +1011,7 @@ function initShare() {
 function init() {
   initTheme();
   initInstall();
+  initUpdates();
   initShare();
   loadCells();
   // a saved or linked rhythm that didn't fit gives way to the one in the grid
