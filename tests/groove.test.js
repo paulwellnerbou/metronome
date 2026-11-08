@@ -80,3 +80,11 @@ test('a preset repeats through the phrase', () => {
   assert.equal(presetsFor(sig).length > 0, true);
   assert.deepEqual(presetsFor(signature('5/8')), []);
 });
+
+test('the son tumbao anticipates 3 and 1', () => {
+  const sig = signature('4/4');
+  const cells = presetGroove(PRESETS.find((p) => p.id === 'son'), sig, 2);
+  const kicks = cells.map((v, i) => (v & K ? i : -1)).filter((i) => i >= 0);
+  assert.deepEqual(kicks, [3, 6, 11, 14]);   // 2-and and 4, in both bars
+  assert.ok(presetsFor(signature('5/4')).some((p) => p.id === 'mission'));
+});

@@ -107,6 +107,24 @@ export const PRESETS = [
     kick: 'x-------|x-------', hat: 'x-x-x-x-|x-x-x-x-', clave: 'x--x---x|--x-x---' },
   { id: 'bossa', label: 'Bossa nova', sig: '4/4',
     kick: 'x--xx--x|x--xx--x', hat: 'xxxxxxxx|xxxxxxxx', clave: 'x--x--x-|--x--x--' },
+  // The bass of son plays the tumbao, anticipating the chord on 2-and and 4;
+  // the hi-hat stands in for the maracas.
+  { id: 'son', label: 'Son tumbao (Chan Chan)', sig: '4/4',
+    kick: '---x--x-|---x--x-', hat: 'xxxxxxxx|xxxxxxxx', clave: 'x--x--x-|--x-x---' },
+  { id: 'onedrop', label: 'Reggae one drop', sig: '4/4',
+    kick: '----x---', snare: '----x---', hat: 'xxxxxxxx' },
+  // the snare on all four beats, as on many Motown records
+  { id: 'motown', label: 'Motown backbeat', sig: '4/4',
+    kick: 'x---x---', snare: 'x-x-x-x-', hat: 'xxxxxxxx' },
+  { id: 'stomp', label: 'We Will Rock You', sig: '4/4',
+    kick: 'xx--xx--', snare: '--x---x-' },
+  // Kick on every beat, snare on 2-and and 4: with the one, the accents fall
+  // as a tresillo.
+  { id: 'setfire', label: 'Set Fire to the Rain', sig: '4/4',
+    kick: 'x-x-x-x-', snare: '---x--x-', hat: 'xxxxxxxx' },
+  // 3+3+2+2 eighths: two long notes, two short ones.
+  { id: 'mission', label: 'Mission: Impossible', sig: '5/4',
+    kick: 'x--x------', snare: '------x-x-', hat: 'x-x-x-x-x-' },
   { id: 'waltz', label: 'Waltz', sig: '3/4',
     kick: 'x-----', snare: '--x-x-', hat: 'x-x-x-' },
   { id: 'ballad68', label: '6/8 groove', sig: '6/8',
