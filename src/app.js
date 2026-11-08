@@ -985,12 +985,28 @@ function initDebug() {
     }).observe({ type: 'longtask', buffered: false });
   } catch (e) { /* not in this browser */ }
 
+  const panel = document.createElement('div');
+  panel.className = 'debug';
   const box = document.createElement('pre');
-  box.className = 'debug';
-  document.body.append(box);
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'debug-close';
+  close.title = 'Close diagnostics';
+  close.setAttribute('aria-label', 'Close diagnostics');
+  close.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>';
+  panel.append(box, close);
+  document.body.append(panel);
   const ms = (s) => `${Math.round(s * 1000)} ms`;
   const time = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
-  setInterval(() => {
+  close.addEventListener('click', () => {
+    clearInterval(timer);
+    panel.remove();
+    try { localStorage.removeItem('metronome-debug'); } catch (e) { /* private mode */ }
+    const url = new URL(location.href);
+    url.searchParams.delete('debug');
+    try { history.replaceState(history.state, '', url); } catch (e) { /* throttled */ }
+  });
+  const timer = setInterval(() => {
     const s = engine.stats();
     const heap = performance.memory ? `${(performance.memory.usedJSHeapSize / 1e6).toFixed(1)} MB` : 'n/a';
     const lines = [`${engine.running ? 'playing' : 'stopped'} · heap ${heap} · ${document.querySelectorAll('*').length} nodes`];

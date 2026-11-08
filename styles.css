@@ -1253,10 +1253,18 @@ kbd {
 @keyframes backdrop-in { from { opacity: 0; } }
 
 /* the ?debug=1 overlay */
+/* Touches pass through to the app underneath, except on the close button. */
 .debug {
   position: fixed; left: 8px; right: 8px; bottom: 8px; z-index: 1000;
-  margin: 0; padding: 8px 10px; border-radius: 8px;
+  padding: 8px 40px 8px 10px; border-radius: 8px;
   background: rgba(0, 0, 0, 0.78); color: #e8f5d0;
-  font: 11px/1.4 ui-monospace, Menlo, monospace; white-space: pre-wrap;
   pointer-events: none;
 }
+.debug pre { margin: 0; font: 11px/1.4 ui-monospace, Menlo, monospace; white-space: pre-wrap; }
+.debug-close {
+  position: absolute; top: 2px; right: 2px;
+  display: grid; place-items: center; width: 36px; height: 36px;
+  border: 0; border-radius: 6px; background: none; color: inherit;
+  cursor: pointer; pointer-events: auto;
+}
+.debug-close svg { width: 16px; height: 16px; }
