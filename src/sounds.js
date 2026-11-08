@@ -102,15 +102,47 @@ function synthHat(ctx, dest, time, level) {
   burst(ctx, dest, time, { filter: 'highpass', freq: 7600, peak: 0.34 * level, decay: 0.04 });
 }
 
-// The drum kit's recorded hits, one per drum, from SM Drums (public domain).
+// A shaker's beads roll before they hit the end of the egg: the noise swells
+// in, and the swell starts early so that the hit, not the roll, is on time.
+function shake(ctx, dest, time, { freq, swell, peak, decay }) {
+  const start = Math.max(ctx.currentTime, time - swell);
+  const src = ctx.createBufferSource();
+  src.buffer = noiseBuffer(ctx);
+  const shape = ctx.createBiquadFilter();
+  shape.type = 'bandpass';
+  shape.frequency.value = freq;
+  shape.Q.value = 0.9;
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(SILENT, start);
+  gain.gain.exponentialRampToValueAtTime(peak, Math.max(time, start + ATTACK));
+  gain.gain.exponentialRampToValueAtTime(SILENT, Math.max(time, start + ATTACK) + decay);
+  src.connect(shape);
+  shape.connect(gain);
+  gain.connect(dest);
+  src.start(start, Math.random() * 0.5);
+  src.stop(time + decay + STOP_TAIL);
+}
+// The stroke away from the body is crisp; the one back rolls longer and darker.
+function synthShaker(ctx, dest, time, level) {
+  shake(ctx, dest, time, { freq: 6800, swell: 0.012, peak: 0.42 * level, decay: 0.05 });
+}
+function synthShakerBack(ctx, dest, time, level) {
+  shake(ctx, dest, time, { freq: 5200, swell: 0.035, peak: 0.36 * level, decay: 0.06 });
+}
+
+// The drum kit's recorded hits, one per drum, from SM Drums, and the shaker's
+// two strokes from the Versilian Community Sample Library (both public domain).
 // WAV, not a compressed format: those start with encoder padding that browsers
 // don't reliably strip, and every hit would land late. Until a hit has arrived
 // and decoded, or if it never does, its synthesized drum plays. `gain` brings
-// each recording level with the synthesized drum it stands in for.
+// each recording level with the synthesized drum it stands in for; `lead` is
+// how far into the recording its hit comes, and it starts that much early.
 const SAMPLES = {
   kick: { file: 'kick.wav', gain: 1, synth: synthKick },
   snare: { file: 'snare.wav', gain: 0.45, synth: synthSnare },
   hat: { file: 'hat.wav', gain: 0.46, synth: synthHat },
+  shaker: { file: 'shaker.wav', gain: 0.4, lead: 0.005, synth: synthShaker },
+  shakerBack: { file: 'shaker-back.wav', gain: 0.4, lead: 0.016, synth: synthShakerBack },
 };
 const IDS = Object.keys(SAMPLES);
 const buffers = {};
@@ -142,7 +174,7 @@ export function decodeSamples(ctx) {
 }
 
 function drum(id) {
-  const { gain, synth } = SAMPLES[id];
+  const { gain, lead = 0, synth } = SAMPLES[id];
   return (ctx, dest, time, level) => {
     const buffer = buffers[id];
     if (!buffer) { synth(ctx, dest, time, level); return; }
@@ -152,11 +184,14 @@ function drum(id) {
     amp.gain.value = gain * level;
     src.connect(amp);
     amp.connect(dest);
-    src.start(time);
+    // too late to start early: skip into the recording instead, hit still on time
+    const now = ctx.currentTime;
+    if (time - lead < now) src.start(now, Math.min(lead, now - (time - lead)));
+    else src.start(time - lead);
   };
 }
-const RECORDED = { kick: drum('kick'), snare: drum('snare'), hat: drum('hat') };
-const ELECTRONIC = { kick: synthKick, snare: synthSnare, hat: synthHat };
+const RECORDED = Object.fromEntries(IDS.map((id) => [id, drum(id)]));
+const ELECTRONIC = Object.fromEntries(IDS.map((id) => [id, SAMPLES[id].synth]));
 const kitFor = (step) => (step.electronic ? ELECTRONIC : RECORDED);
 
 function clave(ctx, dest, time, freq, level) {
@@ -167,14 +202,16 @@ function clave(ctx, dest, time, freq, level) {
 
 // A rhythm's kit: bit i of a step's hits is INSTRUMENTS[i] of groove.js.
 function kitHits(ctx, dest, time, step) {
-  const { kick, snare, hat } = kitFor(step);
-  const [kickOn, snareOn, hatOn, claveOn] = [1, 2, 4, 8].map((b) => step.hits & b);
+  const { kick, snare, hat, shaker, shakerBack } = kitFor(step);
+  const [kickOn, snareOn, hatOn, claveOn, shakerOn] = [1, 2, 4, 8, 16].map((b) => step.hits & b);
   if (kickOn) kick(ctx, dest, time, 1);
   if (snareOn) snare(ctx, dest, time, 0.9);
   // the same balance the kit keeps on its own: down under a drum, the off-beats
   // below the beats
   if (hatOn) hat(ctx, dest, time, kickOn || snareOn ? 0.5 : step.offbeat ? 0.7 : 1);
   if (claveOn) clave(ctx, dest, time, 2480, kickOn || snareOn ? 0.45 : 0.6);
+  // away on the even eighths, back on the odd ones, as the hand goes
+  if (shakerOn) (step.backstroke ? shakerBack : shaker)(ctx, dest, time, step.offbeat ? 0.75 : 1);
 }
 
 // The off-beat eighths sit under the beats, never level with them.
@@ -227,7 +264,7 @@ const VOICES = {
   },
 };
 
-// step: { sound, role, group, offbeat, unit, eighths, electronic, hits? }
+// step: { sound, role, group, offbeat, unit, eighths, electronic, hits?, backstroke? }
 export function playStep(ctx, dest, time, step) {
   (VOICES[step.sound] || VOICES.click)(ctx, dest, time, step);
 }

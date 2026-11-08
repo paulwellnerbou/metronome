@@ -2,10 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { signature } from '../src/meter.js';
 import {
-  PRESETS, decodeGroove, defaultGroove, encodeGroove, presetBars, presetGroove, presetsFor, resize, slotAt, slotsPerBar,
+  INSTRUMENTS, PRESETS, decodeGroove, defaultGroove, encodeGroove, presetBars, presetGroove, presetsFor, resize, slotAt, slotsPerBar,
 } from '../src/groove.js';
 
-const [K, S, H, C] = [1, 2, 4, 8];
+const [K, S, H, C, SH] = [1, 2, 4, 8, 16];
 
 test('the default is what the kit plays on its own', () => {
   assert.deepEqual(defaultGroove(signature('4/4'), true, 1), [K | H, H, S | H, H, S | H, H, S | H, H]);
@@ -35,6 +35,17 @@ test('a link holds the shortest repeating run of bars', () => {
   assert.deepEqual(decodeGroove(text, sig, 4), fill);
 });
 
+test('a shaker row is added to a link only when it plays', () => {
+  const sig = signature('4/4');
+  const cells = defaultGroove(sig, false, 1);
+  assert.equal(encodeGroove(cells, sig).split('.').length, 5);
+  cells[1] |= SH;
+  const text = encodeGroove(cells, sig);
+  assert.equal(text, '1.80.2a.00.00.40');
+  assert.deepEqual(decodeGroove(text, sig, 1), cells);
+  assert.equal(decodeGroove('1.80.2a.00.00.40.00', sig, 1), null);
+});
+
 test('odd bar lengths round-trip through the hex padding', () => {
   for (const id of ['3/8', '5/8', '7/8', '7/4', '12/8']) {
     const sig = signature(id);
@@ -60,7 +71,7 @@ test('a longer phrase repeats the rhythm, a shorter one cuts it', () => {
 test('every preset fills whole bars of its meter on every row', () => {
   for (const p of PRESETS) {
     const per = slotsPerBar(signature(p.sig));
-    for (const id of ['kick', 'snare', 'hat', 'clave']) {
+    for (const { id } of INSTRUMENTS) {
       if (!p[id]) continue;
       const bars = p[id].split('|');
       assert.equal(bars.length, presetBars(p), `${p.id} ${id}`);
@@ -87,4 +98,6 @@ test('the son tumbao anticipates 3 and 1', () => {
   const kicks = cells.map((v, i) => (v & K ? i : -1)).filter((i) => i >= 0);
   assert.deepEqual(kicks, [3, 6, 11, 14]);   // 2-and and 4, in both bars
   assert.ok(presetsFor(signature('5/4')).some((p) => p.id === 'mission'));
+  assert.ok(cells.every((v) => v & SH));    // the maracas on every eighth
+
 });

@@ -6,7 +6,7 @@
 
 import { beatRoles, firstPos, nextPos, phraseSpan, resubdivide, stepSeconds } from './meter.js';
 import { decodeSamples, fetchSamples, playStep } from './sounds.js';
-import { slotAt } from './groove.js';
+import { slotAt, slotsPerBeat } from './groove.js';
 
 const TICK_MS = 25;
 // How long the main thread may stall before a beat goes missing. Phones stall
@@ -143,6 +143,7 @@ export function createEngine() {
         unit: cfg.sig.unit,
         eighths: cfg.subs > 1,
         hits: cfg.groove ? cfg.groove[slotAt(pos, cfg.sig)] : undefined,
+        backstroke: (pos.beat * slotsPerBeat(cfg.sig) + pos.sub) % 2 === 1,
       });
       const dur = stepSeconds(pos, cfg);
       events.push({ ...pos, time: nextTime, dur, ...phraseSpan(pos, cfg) });

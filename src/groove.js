@@ -10,7 +10,10 @@ export const INSTRUMENTS = [
   { id: 'snare', label: 'Snare' },
   { id: 'hat', label: 'Hi-hat' },
   { id: 'clave', label: 'Clave' },
+  { id: 'shaker', label: 'Shaker' },
 ];
+// Links from before the shaker carry four rows; a row left off is silent.
+const ROWS_MIN = 4;
 const bit = (id) => 1 << INSTRUMENTS.findIndex((inst) => inst.id === id);
 const KICK = bit('kick');
 const SNARE = bit('snare');
@@ -46,9 +49,10 @@ export function resize(cells, length) {
   return Array.from({ length }, (_, i) => cells[i % cells.length] || 0);
 }
 
-// "P.k.s.h.c": the shortest run of P bars the rhythm repeats, then one hex row
-// per instrument over those bars, first slot in the highest bit. A one-bar
-// groove stays a short link however long the phrase is.
+// "P.k.s.h.c[.sh]": the shortest run of P bars the rhythm repeats, then one hex
+// row per instrument over those bars, first slot in the highest bit. A one-bar
+// groove stays a short link however long the phrase is, and empty rows past the
+// first four are left off.
 export function encodeGroove(cells, sig) {
   const per = slotsPerBar(sig);
   const bars = cells.length / per;
@@ -68,6 +72,7 @@ export function encodeGroove(cells, sig) {
     }
     return hex;
   });
+  while (rows.length > ROWS_MIN && /^0+$/.test(rows[rows.length - 1])) rows.pop();
   return [period, ...rows].join('.');
 }
 
@@ -76,7 +81,7 @@ export function decodeGroove(text, sig, bars) {
   if (typeof text !== 'string') return null;
   const [head, ...rows] = text.split('.');
   const period = Number(head);
-  if (!/^\d+$/.test(head) || period < 1 || period > BARS_MAX || rows.length !== INSTRUMENTS.length) return null;
+  if (!/^\d+$/.test(head) || period < 1 || period > BARS_MAX || rows.length < ROWS_MIN || rows.length > INSTRUMENTS.length) return null;
   const n = period * slotsPerBar(sig);
   const digits = Math.ceil(n / 4);
   if (!rows.every((row) => row.length === digits && /^[0-9a-f]+$/i.test(row))) return null;
@@ -100,17 +105,17 @@ export const PRESETS = [
   { id: 'tresillo', label: 'Tresillo', sig: '4/4',
     kick: 'x--x----', snare: '------x-', hat: 'x-x-x-x-' },
   { id: 'son32', label: 'Son clave 3-2', sig: '4/4',
-    kick: 'x-------|x-------', hat: 'x-x-x-x-|x-x-x-x-', clave: 'x--x--x-|--x-x---' },
+    kick: 'x-------|x-------', shaker: 'x-x-x-x-|x-x-x-x-', clave: 'x--x--x-|--x-x---' },
   { id: 'son23', label: 'Son clave 2-3', sig: '4/4',
-    kick: 'x-------|x-------', hat: 'x-x-x-x-|x-x-x-x-', clave: '--x-x---|x--x--x-' },
+    kick: 'x-------|x-------', shaker: 'x-x-x-x-|x-x-x-x-', clave: '--x-x---|x--x--x-' },
   { id: 'rumba', label: 'Rumba clave', sig: '4/4',
-    kick: 'x-------|x-------', hat: 'x-x-x-x-|x-x-x-x-', clave: 'x--x---x|--x-x---' },
+    kick: 'x-------|x-------', shaker: 'x-x-x-x-|x-x-x-x-', clave: 'x--x---x|--x-x---' },
   { id: 'bossa', label: 'Bossa nova', sig: '4/4',
-    kick: 'x--xx--x|x--xx--x', hat: 'xxxxxxxx|xxxxxxxx', clave: 'x--x--x-|--x--x--' },
+    kick: 'x--xx--x|x--xx--x', shaker: 'xxxxxxxx|xxxxxxxx', clave: 'x--x--x-|--x--x--' },
   // The bass of son plays the tumbao, anticipating the chord on 2-and and 4;
   // the hi-hat stands in for the maracas.
   { id: 'son', label: 'Son tumbao (Chan Chan)', sig: '4/4',
-    kick: '---x--x-|---x--x-', hat: 'xxxxxxxx|xxxxxxxx', clave: 'x--x--x-|--x-x---' },
+    kick: '---x--x-|---x--x-', shaker: 'xxxxxxxx|xxxxxxxx', clave: 'x--x--x-|--x-x---' },
   { id: 'onedrop', label: 'Reggae one drop', sig: '4/4',
     kick: '----x---', snare: '----x---', hat: 'xxxxxxxx' },
   // the snare on all four beats, as on many Motown records
