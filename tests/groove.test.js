@@ -103,3 +103,10 @@ test('the son tumbao anticipates 3 and 1', () => {
   assert.ok(cells.every((v) => v & SH));    // the maracas on every eighth
 
 });
+
+test('the polka alternates kick and snare, the shuffle leaves out the middle of each triplet', () => {
+  const polka = presetGroove(PRESETS.find((p) => p.id === 'polka'), signature('4/4'), 1);
+  assert.ok(polka.every((v, i) => (i % 2 ? v & S && !(v & K) : v & K && !(v & S))));
+  const shuffle = presetGroove(PRESETS.find((p) => p.id === 'shuffle'), signature('12/8'), 1);
+  assert.ok(shuffle.every((v, i) => Boolean(v & H) === (i % 3 !== 1)));
+});

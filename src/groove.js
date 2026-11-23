@@ -103,6 +103,9 @@ export const PRESETS = [
     kick: 'x-x-x-x-', snare: '--x---x-', hat: '-x-x-x-x' },
   { id: 'half', label: 'Half-time', sig: '4/4',
     kick: 'x-----x-', snare: '----x---', hat: 'xxxxxxxx' },
+  // Oom-pah: kick on every beat, snare on every and. Fast, it is punk's skate beat.
+  { id: 'polka', label: 'Punk polka', sig: '4/4',
+    kick: 'x-x-x-x-', snare: '-x-x-x-x', hat: 'x-x-x-x-' },
   // 3+3+2 on the kit: kick, kick, snare. A kick on 3 would land in its gap.
   { id: 'tresillo', label: 'Tresillo', sig: '4/4',
     kick: 'x--x----', snare: '------x-', hat: 'x-x-x-x-' },
@@ -140,6 +143,9 @@ export const PRESETS = [
     kick: 'x--x--x--x--', clave: 'x-x-xx-x-x-x' },
   { id: 'blues128', label: 'Slow blues', sig: '12/8',
     kick: 'x-----x-----', snare: '---x-----x--', hat: 'xxxxxxxxxxxx' },
+  // Each triplet without its middle note: long-short on every beat.
+  { id: 'shuffle', label: 'Shuffle', sig: '12/8',
+    kick: 'x-----x-----', snare: '---x-----x--', hat: 'x-xx-xx-xx-x' },
 ];
 
 export const presetsFor = (sig) => PRESETS.filter((p) => p.sig === sig.id);
